@@ -7,6 +7,10 @@ RUN pip3 install -U pip
 
 WORKDIR /app
 
+COPY . .
+RUN ls
+RUN tree
+
 COPY src/requirements.bolt.txt /tmp/requirements.bolt.txt
 RUN pip3 install -r /tmp/requirements.bolt.txt
 
