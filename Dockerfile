@@ -9,7 +9,8 @@ WORKDIR /app
 
 COPY . .
 
-RUN tree
+# RUN tree
+RUN ls
 
 # COPY requirements.bolt.txt /tmp/requirements.bolt.txt
 # RUN pip3 install -r /tmp/requirements.bolt.txt
