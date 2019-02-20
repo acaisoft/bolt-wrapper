@@ -8,7 +8,7 @@ RUN pip3 install -U pip
 WORKDIR /app
 
 COPY . .
-RUN pip3 install -r /tmp/requirements.txt
-RUN pip3 install -r /tmp/requirements.bolt.txt
+RUN pip3 install -r requirements.txt
+RUN pip3 install -r requirements.bolt.txt
 
 CMD ["./tests/run.sh"]
