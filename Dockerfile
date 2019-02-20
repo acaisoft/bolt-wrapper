@@ -11,14 +11,11 @@ COPY . .
 RUN ls
 RUN tree
 
+COPY src/_local_packages/* /tmp/_local_packages/
 COPY src/requirements.bolt.txt /tmp/requirements.bolt.txt
 RUN pip3 install -r /tmp/requirements.bolt.txt
 
-COPY src/_local_packages/* /tmp/_local_packages/
-COPY src/requirements.txt /tmp/requirements.txt
+COPY ./src .
 RUN pip3 install -r /tmp/requirements.txt
 
-RUN rm /tmp/requirements.txt /tmp/requirements.bolt.txt
-
-COPY ./src .
 CMD ["./tests/run.sh"]
