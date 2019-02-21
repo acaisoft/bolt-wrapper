@@ -11,4 +11,4 @@ COPY ./src/ .
 RUN pip3 install -r requirements.txt
 RUN pip3 install -r requirements.bolt.txt
 
-CMD ["./tests/run.sh"]
+ENTRYPOINT ["python3", "-m", "tests.run"]

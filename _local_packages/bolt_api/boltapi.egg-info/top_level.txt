@@ -1,3 +1,0 @@
-bolt_api
-dev_setup
-hasura

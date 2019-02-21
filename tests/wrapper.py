@@ -2,25 +2,104 @@ import time
 import csv
 import datetime
 import locust.stats
-import random
 
 from os import getenv
 from gql.transport.requests import RequestsHTTPTransport
-from gql import Client
+from gql import gql, Client
 from locust import events
-from bolt_api.client import BoltAPIClient
 
 # import source code from locustfile.py with tests
 from locustfile import *
 
-
 # Envs
-SENDING_INTERVAL_IN_SECONDS = int(getenv('SENDING_INTERVAL_IN_SECONDS'))
+SENDING_INTERVAL_IN_SECONDS = int(getenv('SENDING_INTERVAL_IN_SECONDS', '5'))
 GRAPHQL_URL = getenv('GRAPHQL_URL')
 EXECUTION_ID = getenv('EXECUTION_ID')
 HASURA_GRAPHQL_ACCESS_KEY = getenv('HASURA_GRAPHQL_ACCESS_KEY')
 
 locust.stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
+
+
+class BoltAPIClient(object):
+    """
+    GraphQL client for communication with Bolt API (hasura)
+    """
+    def __init__(self):
+        self.gql_client = Client(
+            retries=0,
+            transport=RequestsHTTPTransport(
+                url=GRAPHQL_URL,
+                use_json=True,
+                headers={'X-Hasura-Access-Key': HASURA_GRAPHQL_ACCESS_KEY},
+            )
+        )
+
+    def insert_aggregated_results(self, stats):
+        query = gql('''
+            mutation (
+                $execution_id: uuid, 
+                $timestamp: timestamptz, 
+                $number_of_successes: Int, 
+                $number_of_fails: Int, 
+                $number_of_errors: Int, 
+                $average_response_time: Float, 
+                $average_response_size: Float){ 
+                    insert_result_aggregate(objects: [{
+                        execution_id: $execution_id, 
+                        timestamp: $timestamp, 
+                        number_of_successes: $number_of_successes, 
+                        number_of_fails: $number_of_fails, 
+                        number_of_errors: $number_of_errors, 
+                        average_response_time: $average_response_time, 
+                        average_response_size: $average_response_size}]){
+                returning { id } }}
+        ''')
+        start = time.time()
+        result = self.gql_client.execute(query, variable_values=stats)
+        print(f'Query `insert_aggregated_results` took {time.time() - start} seconds. Data {stats}')
+        return result
+
+    def insert_distribution_results(self, test_report):
+        query = gql('''
+            mutation (
+                $execution_id: uuid, 
+                $request_result: json, 
+                $distribution_result: json, 
+                $start: timestamptz, 
+                $end: timestamptz){
+                    insert_result_distribution (objects: [{
+                        execution_id: $execution_id, 
+                        request_result: $request_result, 
+                        distribution_result: $distribution_result, 
+                        start: $start, 
+                        end: $end}]){
+                returning { id } }} 
+        ''')
+        start = time.time()
+        result = self.gql_client.execute(query, variable_values=test_report)
+        print(f'Query `insert_distribution_results` took {time.time() - start} seconds. Data {test_report}')
+        return result
+
+    def insert_error_results(self, errors):
+        query = gql('''
+            mutation (
+                $execution_id: uuid, 
+                $name: String, 
+                $error_type: String, 
+                $exception_data: String, 
+                $number_of_occurrences: Int){
+                    insert_result_error (objects: [{
+                        execution_id: $execution_id, 
+                        name: $name, 
+                        error_type: $error_type, 
+                        exception_data: $exception_data, 
+                        number_of_occurrences: $number_of_occurrences}]){
+                returning { id }}}
+        ''')
+        start = time.time()
+        result = self.gql_client.execute(query, variable_values=errors)
+        print(f'Query `insert_error_results` took {time.time() - start} seconds. Data {errors}')
+        return result
 
 
 class LocustWrapper(object):
@@ -31,19 +110,11 @@ class LocustWrapper(object):
     errors = {}
     stats = []
     stats_queue = []
-    start_execution = None
-    end_execution = None
+    start_execution: datetime.datetime = None
+    end_execution: datetime.datetime = None
 
     def __init__(self):
-        self.gql_client = Client(
-            retries=0,
-            transport=RequestsHTTPTransport(
-                url=GRAPHQL_URL,
-                use_json=True,
-                headers={'X-Hasura-Access-Key': HASURA_GRAPHQL_ACCESS_KEY},
-            )
-        )
-        self.bolt_api_client = BoltAPIClient(self.gql_client)
+        self.bolt_api_client = BoltAPIClient()
         self.execution = EXECUTION_ID
 
     def prepare_stats_by_interval(self, data):
@@ -65,7 +136,7 @@ class LocustWrapper(object):
             return None
         # prepare dict for stats
         stats['execution_id'] = self.execution
-        stats['timestamp'] = datetime.datetime.utcfromtimestamp(timestamp)
+        stats['timestamp'] = datetime.datetime.utcfromtimestamp(timestamp).isoformat()
         stats['number_of_successes'] = len([el for el in elements if el['event_type'] == 'success'])
         stats['number_of_fails'] = len([el for el in elements if el['event_type'] == 'failure'])
         stats['number_of_errors'] = len(set([el['exception'] for el in elements if bool(el['exception'])]))
@@ -178,6 +249,8 @@ def quitting_handler():
     print(f'Errors: {locust_wrapper.errors}')
     print(f'Start: {locust_wrapper.start_execution}, end: {locust_wrapper.end_execution}')
     print('--------------')
+    # wait for updating data
+    time.sleep(SENDING_INTERVAL_IN_SECONDS)
 
     # open report with requests and save to variable
     with open('test_report_requests.csv') as f:
@@ -190,8 +263,8 @@ def quitting_handler():
         distribution_result = list(reader)
 
     test_report = {
-        'start': locust_wrapper.start_execution or datetime.datetime.now(),
-        'end': locust_wrapper.end_execution or datetime.datetime.now(),
+        'start': locust_wrapper.start_execution.isoformat() or datetime.datetime.now().isoformat(),
+        'end': locust_wrapper.end_execution.isoformat() or datetime.datetime.now().isoformat(),
         'execution_id': locust_wrapper.execution,
         'request_result': requests_result,
         'distribution_result': distribution_result
@@ -224,4 +297,3 @@ events.locust_stop_hatching += stop_handler
 events.request_success += success_handler
 events.request_failure += failure_handler
 events.quitting += quitting_handler
-

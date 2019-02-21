@@ -1,4 +1,0 @@
-graphene
-gql
-Flask
-requests
