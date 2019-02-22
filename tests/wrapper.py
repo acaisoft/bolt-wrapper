@@ -9,7 +9,7 @@ from locust import events
 from gql.transport.requests import RequestsHTTPTransport
 
 # import source code from locustfile.py with tests
-from .locustfile import *
+from locustfile import *
 
 # Envs
 SENDING_INTERVAL_IN_SECONDS = int(getenv('SENDING_INTERVAL_IN_SECONDS', '5'))
