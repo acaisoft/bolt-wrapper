@@ -4,9 +4,9 @@ import datetime
 import locust.stats
 
 from os import getenv
-from gql.transport.requests import RequestsHTTPTransport
 from gql import gql, Client
 from locust import events
+from gql.transport.requests import RequestsHTTPTransport
 
 # import source code from locustfile.py with tests
 from locustfile import *

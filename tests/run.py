@@ -2,8 +2,8 @@ import sys
 import os
 
 from gql import gql, Client
-from gql.transport.requests import RequestsHTTPTransport
 from locust.main import main
+from gql.transport.requests import RequestsHTTPTransport
 
 # ENVs
 GRAPHQL_URL = os.getenv('GRAPHQL_URL')
