@@ -5,6 +5,9 @@ from gql import gql, Client
 from locust.main import main
 from gql.transport.requests import RequestsHTTPTransport
 
+# monkey patch for returning 0 (success) status code
+sys.exit = lambda status: None
+
 # ENVs
 GRAPHQL_URL = os.getenv('GRAPHQL_URL')
 EXECUTION_ID = os.getenv('EXECUTION_ID')
@@ -62,4 +65,4 @@ if __name__ == '__main__':
     print(f'Arguments (sys.argv) before {sys.argv}')
     sys.argv = get_locust_arguments_from_database()
     print(f'Arguments (sys.argv) after {sys.argv}')
-    sys.exit(main())  # test runner
+    main()  # test runner

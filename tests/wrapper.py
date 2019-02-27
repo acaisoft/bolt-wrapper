@@ -11,6 +11,7 @@ from gql.transport.requests import RequestsHTTPTransport
 # import source code from locustfile.py with tests
 from locustfile import *
 
+
 # Envs
 SENDING_INTERVAL_IN_SECONDS = int(getenv('SENDING_INTERVAL_IN_SECONDS', '5'))
 GRAPHQL_URL = getenv('GRAPHQL_URL')
@@ -78,6 +79,20 @@ class BoltAPIClient(object):
         start = time.time()
         result = self.gql_client.execute(query, variable_values=test_report)
         print(f'Query `insert_distribution_results` took {time.time() - start} seconds. Data {test_report}')
+        return result
+
+    def update_execution(self, data):
+        query = gql('''
+            mutation ($execution_id: uuid, $data: execution_set_input) {
+                update_execution(where: {id: {_eq: $execution_id}}, _set: $data) {
+                    affected_rows
+                }
+            }
+        ''')
+        start = time.time()
+        variable_values = {'execution_id': EXECUTION_ID, 'data': data}
+        print(f'Query `update_execution` took {time.time() - start} seconds. Data {variable_values}')
+        result = self.gql_client.execute(query, variable_values=variable_values)
         return result
 
     def insert_error_results(self, errors):
@@ -281,6 +296,8 @@ def start_handler():
     Will be called before starting test runner
     """
     locust_wrapper.start_execution = datetime.datetime.now()
+    locust_wrapper.bolt_api_client.update_execution(
+        {'status': 'RUNNING', 'start': locust_wrapper.start_execution.isoformat()})
     if not locust_wrapper.dataset:
         locust_wrapper.dataset.append({locust_wrapper.start_execution.timestamp(): []})
 
@@ -290,6 +307,8 @@ def stop_handler():
     Will be called after finishing test runner
     """
     locust_wrapper.end_execution = datetime.datetime.now()
+    locust_wrapper.bolt_api_client.update_execution(
+        {'status': 'FINISHED', 'end': locust_wrapper.end_execution.isoformat()})
 
 
 events.locust_start_hatching += start_handler
