@@ -10,11 +10,12 @@ RUN apt-get update -y && apt-get install -y \
 
 WORKDIR /app/tests
 
+COPY ./src/requirements.bolt.txt /app/requirements.bolt.txt
+RUN pip3 install -r /app/requirements.bolt.txt
+
 COPY ./src/requirements.txt /app/requirements.txt
 RUN pip3 install -r /app/requirements.txt
 
-COPY ./src/requirements.txt /app/requirements.bolt.txt
-RUN pip3 install -r /app/requirements.bolt.txt
 
 COPY ./src/ /app/
 
