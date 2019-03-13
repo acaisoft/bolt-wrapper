@@ -5,8 +5,6 @@ from gql import gql, Client
 from locust.main import main
 from gql.transport.requests import RequestsHTTPTransport
 
-# monkey patch for returning 0 (success) status code
-sys.exit = lambda status: None
 
 # ENVs
 GRAPHQL_URL = os.getenv('GRAPHQL_URL')
@@ -50,12 +48,14 @@ def get_locust_arguments_from_database():
         configurations = result['execution'][0]['configuration']['configurationParameters']
     except LookupError as ex:
         print(f'Error during extracting arguments from database {ex}')
-        return argv
+        return None
     else:
         argv.extend(['-f', 'wrapper.py'])
         # get and put arguments from database
         for config in configurations:
             argv.extend([config['parameter']['param_name'], config['value']])
+        else:
+            return None
         argv.extend(['--no-web'])
         argv.extend(['--csv=test_report'])
         return argv
@@ -63,6 +63,9 @@ def get_locust_arguments_from_database():
 
 if __name__ == '__main__':
     print(f'Arguments (sys.argv) before {sys.argv}')
+    argv = get_locust_arguments_from_database()
+    if argv is None:
+        sys.exit(123)
     sys.argv = get_locust_arguments_from_database()
     print(f'Arguments (sys.argv) after {sys.argv}')
     main()  # test runner
