@@ -1,22 +1,22 @@
-FROM ubuntu:latest
+FROM python:3.7-alpine
 
-RUN apt-get update -y && apt-get install -y \
-    python-pip \
-	python-dev \
-	build-essential \
-	python3-pip \
-	&& pip3 install -U pip \
-	&& mkdir -p /app/tests
+RUN apk add --no-cache -U zeromq-dev \
+    && apk add --no-cache -U --virtual build-deps g++ \
+    && addgroup -S bolt \
+    && adduser -D -S bolt -G bolt \
+    && pip install gevent \
+    && chown -R bolt:bolt /home/bolt/
 
-WORKDIR /app/tests
+WORKDIR /home/bolt/tests
 
-COPY ./src/requirements.bolt.txt /app/requirements.bolt.txt
-RUN pip3 install -r /app/requirements.bolt.txt
+COPY ./src/requirements.bolt.txt /home/bolt/requirements.bolt.txt
+RUN pip install -r /home/bolt/requirements.bolt.txt
 
-COPY ./src/requirements.txt /app/requirements.txt
-RUN pip3 install -r /app/requirements.txt
+COPY ./src/ /home/bolt/
+RUN chown -R bolt:bolt /home/bolt
+USER bolt
+ENV PATH="/home/bolt/.local/bin:${PATH}"
 
+RUN pip install -r /home/bolt/requirements.txt
 
-COPY ./src/ /app/
-
-CMD ["python3", "-m", "run"]
+CMD ["python", "-m", "run"]
