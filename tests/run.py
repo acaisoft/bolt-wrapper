@@ -72,6 +72,8 @@ def set_environments_for_tests(data):
             _exit_with_status(1)
         elif repository_id:
             os.environ['LOCUSTFILE_NAME'] = 'locustfile'
+            os.environ['MIN_WAIT'] = '50'
+            os.environ['MAX_WAIT'] = '100'
         elif test_creator:
             try:
                 test_creator = test_creator[0]['testCreator']
