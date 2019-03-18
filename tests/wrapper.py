@@ -1,34 +1,43 @@
-import time
-import csv
-import datetime
-import locust.stats
+"""
+We have to wrap all imports for make sure
+that locustfile.py does not overwrite original imports from this file during test execution.
+For all imports we adding `wrap_` prefix.
+"""
+import os as wrap_os
+import time as wrap_time
+import csv as wrap_csv
+import datetime as wrap_datetime
+import locust.stats as wrap_locust_stats
+import gql as wrap_gql
 
-from os import getenv
-from gql import gql, Client
-from locust import events
-from gql.transport.requests import RequestsHTTPTransport
+from locust import events as wrap_events
+from gql.transport.requests import RequestsHTTPTransport as WrapRequestsHTTPTransport
 
-# import source code from locustfile.py with tests
-from locustfile import *
-
+from logger import setup_custom_logger
 
 # Envs
-SENDING_INTERVAL_IN_SECONDS = int(getenv('SENDING_INTERVAL_IN_SECONDS', '2'))
-GRAPHQL_URL = getenv('GRAPHQL_URL')
-EXECUTION_ID = getenv('EXECUTION_ID')
-HASURA_GRAPHQL_ACCESS_KEY = getenv('HASURA_GRAPHQL_ACCESS_KEY')
+SENDING_INTERVAL_IN_SECONDS = int(wrap_os.getenv('SENDING_INTERVAL_IN_SECONDS', '2'))
+GRAPHQL_URL = wrap_os.getenv('GRAPHQL_URL')
+EXECUTION_ID = wrap_os.getenv('EXECUTION_ID')
+HASURA_GRAPHQL_ACCESS_KEY = wrap_os.getenv('HASURA_GRAPHQL_ACCESS_KEY')
+LOCUSTFILE_NAME = wrap_os.getenv('LOCUSTFILE_NAME')
 
-locust.stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
+wrap_locust_stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
+wrap_logger = setup_custom_logger(__name__)
+
+# dynamically import source code from locustfile with tests
+exec(f'from {LOCUSTFILE_NAME} import *')
 
 
 class BoltAPIClient(object):
     """
     GraphQL client for communication with Bolt API (hasura)
     """
+
     def __init__(self):
-        self.gql_client = Client(
+        self.gql_client = wrap_gql.Client(
             retries=0,
-            transport=RequestsHTTPTransport(
+            transport=WrapRequestsHTTPTransport(
                 url=GRAPHQL_URL,
                 use_json=True,
                 headers={'X-Hasura-Access-Key': HASURA_GRAPHQL_ACCESS_KEY},
@@ -36,7 +45,7 @@ class BoltAPIClient(object):
         )
 
     def insert_aggregated_results(self, stats):
-        query = gql('''
+        query = wrap_gql.gql('''
             mutation (
                 $execution_id: uuid, 
                 $timestamp: timestamptz, 
@@ -55,13 +64,13 @@ class BoltAPIClient(object):
                         average_response_size: $average_response_size}]){
                 returning { id } }}
         ''')
-        start = time.time()
+        start = wrap_time.time()
         result = self.gql_client.execute(query, variable_values=stats)
-        print(f'Query `insert_aggregated_results` took {time.time() - start} seconds. Data {stats}')
+        wrap_logger.info(f'Query `insert_aggregated_results` took {wrap_time.time() - start} seconds. Data {stats}')
         return result
 
     def insert_distribution_results(self, test_report):
-        query = gql('''
+        query = wrap_gql.gql('''
             mutation (
                 $execution_id: uuid, 
                 $request_result: json, 
@@ -76,27 +85,28 @@ class BoltAPIClient(object):
                         end: $end}]){
                 returning { id } }} 
         ''')
-        start = time.time()
+        start = wrap_time.time()
         result = self.gql_client.execute(query, variable_values=test_report)
-        print(f'Query `insert_distribution_results` took {time.time() - start} seconds. Data {test_report}')
+        wrap_logger.info(
+            f'Query `insert_distribution_results` took {wrap_time.time() - start} seconds. Data {test_report}')
         return result
 
     def update_execution(self, data):
-        query = gql('''
+        query = wrap_gql.gql('''
             mutation ($execution_id: uuid, $data: execution_set_input) {
                 update_execution(where: {id: {_eq: $execution_id}}, _set: $data) {
                     affected_rows
                 }
             }
         ''')
-        start = time.time()
+        start = wrap_time.time()
         variable_values = {'execution_id': EXECUTION_ID, 'data': data}
-        print(f'Query `update_execution` took {time.time() - start} seconds. Data {variable_values}')
+        wrap_logger.info(f'Query `update_execution` took {wrap_time.time() - start} seconds. Data {variable_values}')
         result = self.gql_client.execute(query, variable_values=variable_values)
         return result
 
     def insert_error_results(self, errors):
-        query = gql('''
+        query = wrap_gql.gql('''
             mutation (
                 $execution_id: uuid, 
                 $name: String, 
@@ -111,9 +121,9 @@ class BoltAPIClient(object):
                         number_of_occurrences: $number_of_occurrences}]){
                 returning { id }}}
         ''')
-        start = time.time()
+        start = wrap_time.time()
         result = self.gql_client.execute(query, variable_values=errors)
-        print(f'Query `insert_error_results` took {time.time() - start} seconds. Data {errors}')
+        wrap_logger.info(f'Query `insert_error_results` took {wrap_time.time() - start} seconds. Data {errors}')
         return result
 
 
@@ -125,8 +135,8 @@ class LocustWrapper(object):
     errors = {}
     stats = []
     stats_queue = []
-    start_execution: datetime.datetime = None
-    end_execution: datetime.datetime = None
+    start_execution: wrap_datetime.datetime = None
+    end_execution: wrap_datetime.datetime = None
 
     def __init__(self):
         self.bolt_api_client = BoltAPIClient()
@@ -137,7 +147,7 @@ class LocustWrapper(object):
         Preparing stats data by interval for sending to database
         :return stats: Dict:
             - execution_id: uuid
-            - timestamp: int
+            - timestamp:  str:datetime-isoformat
             - number_of_successes: int
             - number_of_fails: int
             - number_of_errors: int
@@ -151,7 +161,7 @@ class LocustWrapper(object):
             return None
         # prepare dict for stats
         stats['execution_id'] = self.execution
-        stats['timestamp'] = datetime.datetime.utcfromtimestamp(timestamp).isoformat()
+        stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
         stats['number_of_successes'] = len([el for el in elements if el['event_type'] == 'success'])
         stats['number_of_fails'] = len([el for el in elements if el['event_type'] == 'failure'])
         stats['number_of_errors'] = len(set([el['exception'] for el in elements if bool(el['exception'])]))
@@ -200,7 +210,7 @@ class LocustWrapper(object):
                 self.errors.update(new_error)
         # handle common type of errors
         last_timestamp = list(self.dataset[-1].keys())[0]
-        now_timestamp = time.time()
+        now_timestamp = wrap_time.time()
         if int(now_timestamp) - int(last_timestamp) < SENDING_INTERVAL_IN_SECONDS:
             self.dataset[-1][last_timestamp].append(data)
         else:
@@ -220,10 +230,10 @@ def save_to_database(stats):
     try:
         locust_wrapper.stats_queue.remove(stats)
     except ValueError:
-        print(f'Stats {stats} does not exist in queue {locust_wrapper.stats_queue}')
+        wrap_logger.info(f'Stats {stats} does not exist in queue {locust_wrapper.stats_queue}')
 
 
-database_save_event = events.EventHook()
+database_save_event = wrap_events.EventHook()
 database_save_event += save_to_database
 
 
@@ -234,7 +244,7 @@ def success_handler(request_type, name, response_time, response_length):
     received_data = {
         'execution_id': locust_wrapper.execution, 'endpoint': name, 'exception': '', 'request_type': request_type,
         'response_length': response_length, 'response_time': float(response_time), 'event_type': 'success',
-        'timestamp': int(time.time()),
+        'timestamp': int(wrap_time.time()),
     }
     locust_wrapper.push_event(received_data, event_type='success')
 
@@ -246,7 +256,7 @@ def failure_handler(request_type, name, response_time, exception):
     received_data = {
         'execution_id': locust_wrapper.execution, 'endpoint': name, 'exception': str(exception),
         'request_type': request_type, 'response_length': 0, 'response_time': float(response_time),
-        'event_type': 'failure', 'timestamp': int(time.time()),
+        'event_type': 'failure', 'timestamp': int(wrap_time.time()),
     }
     locust_wrapper.push_event(received_data, event_type='failure')
 
@@ -257,29 +267,27 @@ def quitting_handler():
     """
     # save remaining data from 'dataset' list
     locust_wrapper.save_stats(send_all=True)
-    success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
-    print('--------------')
-    print(locust_wrapper.stats)
-    print(f'Successfully requests: {success}')
-    print(f'Errors: {locust_wrapper.errors}')
-    print(f'Start: {locust_wrapper.start_execution}, end: {locust_wrapper.end_execution}')
-    print('--------------')
+    sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
+    wrap_logger.info(f'Successfully requests: {sum_success}')
+    wrap_logger.info(f'Stats: {locust_wrapper.stats}')
+    wrap_logger.info(f'Errors: {locust_wrapper.errors}')
+    wrap_logger.info(f'Start: {locust_wrapper.start_execution}. End: {locust_wrapper.end_execution}')
     # wait for updating data
-    time.sleep(SENDING_INTERVAL_IN_SECONDS)
+    wrap_time.sleep(SENDING_INTERVAL_IN_SECONDS)
 
     # open report with requests and save to variable
     with open('test_report_requests.csv') as f:
-        reader = csv.DictReader(f)
+        reader = wrap_csv.DictReader(f)
         requests_result = list(reader)
 
     # open report with distributions and save to variable
     with open('test_report_distribution.csv') as f:
-        reader = csv.DictReader(f)
+        reader = wrap_csv.DictReader(f)
         distribution_result = list(reader)
 
     test_report = {
-        'start': locust_wrapper.start_execution.isoformat() or datetime.datetime.now().isoformat(),
-        'end': locust_wrapper.end_execution.isoformat() or datetime.datetime.now().isoformat(),
+        'start': locust_wrapper.start_execution.isoformat() or wrap_datetime.datetime.now().isoformat(),
+        'end': locust_wrapper.end_execution.isoformat() or wrap_datetime.datetime.now().isoformat(),
         'execution_id': locust_wrapper.execution,
         'request_result': requests_result,
         'distribution_result': distribution_result
@@ -295,7 +303,8 @@ def start_handler():
     """
     Will be called before starting test runner
     """
-    locust_wrapper.start_execution = datetime.datetime.now()
+    wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
+    locust_wrapper.start_execution = wrap_datetime.datetime.now()
     locust_wrapper.bolt_api_client.update_execution(
         {'status': 'RUNNING', 'start': locust_wrapper.start_execution.isoformat()})
     if not locust_wrapper.dataset:
@@ -306,13 +315,14 @@ def stop_handler():
     """
     Will be called after finishing test runner
     """
-    locust_wrapper.end_execution = datetime.datetime.now()
+    wrap_logger.info(f'Finished locust tests with execution {EXECUTION_ID}')
+    locust_wrapper.end_execution = wrap_datetime.datetime.now()
     locust_wrapper.bolt_api_client.update_execution(
         {'status': 'FINISHED', 'end': locust_wrapper.end_execution.isoformat()})
 
 
-events.locust_start_hatching += start_handler
-events.locust_stop_hatching += stop_handler
-events.request_success += success_handler
-events.request_failure += failure_handler
-events.quitting += quitting_handler
+wrap_events.locust_start_hatching += start_handler
+wrap_events.locust_stop_hatching += stop_handler
+wrap_events.request_success += success_handler
+wrap_events.request_failure += failure_handler
+wrap_events.quitting += quitting_handler
