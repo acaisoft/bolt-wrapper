@@ -9,10 +9,10 @@ RUN apk add --no-cache -U zeromq-dev \
 
 WORKDIR /home/bolt/tests
 
-COPY ./src/requirements.bolt.txt /home/bolt/requirements.bolt.txt
+COPY requirements.bolt.txt /home/bolt/requirements.bolt.txt
 RUN pip install -r /home/bolt/requirements.bolt.txt
 
-COPY ./src/ /home/bolt/
+COPY . /home/bolt/
 RUN chown -R bolt:bolt /home/bolt
 USER bolt
 ENV PATH="/home/bolt/.local/bin:${PATH}"
