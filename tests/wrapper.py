@@ -11,7 +11,7 @@ import locust.stats as wrap_locust_stats
 import gql as wrap_gql
 
 from locust import events as wrap_events
-from gql.transport.requests import RequestsHTTPTransport as WrapRequestsHTTPTransport
+from transport import WrappedTransport
 
 from logger import setup_custom_logger
 
@@ -19,7 +19,7 @@ from logger import setup_custom_logger
 SENDING_INTERVAL_IN_SECONDS = int(wrap_os.getenv('SENDING_INTERVAL_IN_SECONDS', '2'))
 GRAPHQL_URL = wrap_os.getenv('GRAPHQL_URL')
 EXECUTION_ID = wrap_os.getenv('EXECUTION_ID')
-HASURA_GRAPHQL_ACCESS_KEY = wrap_os.getenv('HASURA_GRAPHQL_ACCESS_KEY')
+HASURA_TOKEN = wrap_os.getenv('HASURA_TOKEN')
 LOCUSTFILE_NAME = wrap_os.getenv('LOCUSTFILE_NAME')
 
 wrap_locust_stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
@@ -37,10 +37,10 @@ class BoltAPIClient(object):
     def __init__(self):
         self.gql_client = wrap_gql.Client(
             retries=0,
-            transport=WrapRequestsHTTPTransport(
+            transport=WrappedTransport(
                 url=GRAPHQL_URL,
                 use_json=True,
-                headers={'X-Hasura-Access-Key': HASURA_GRAPHQL_ACCESS_KEY},
+                headers={'Authorization': f'Bearer {HASURA_TOKEN}'},
             )
         )
 
@@ -54,15 +54,14 @@ class BoltAPIClient(object):
                 $number_of_errors: Int, 
                 $average_response_time: Float, 
                 $average_response_size: Float){ 
-                    insert_result_aggregate(objects: [{
-                        execution_id: $execution_id, 
+                    insert_result_aggregate(objects: [{ 
                         timestamp: $timestamp, 
                         number_of_successes: $number_of_successes, 
                         number_of_fails: $number_of_fails, 
                         number_of_errors: $number_of_errors, 
                         average_response_time: $average_response_time, 
                         average_response_size: $average_response_size}]){
-                returning { id } }}
+                affected_rows }}
         ''')
         start = wrap_time.time()
         result = self.gql_client.execute(query, variable_values=stats)
@@ -78,12 +77,11 @@ class BoltAPIClient(object):
                 $start: timestamptz, 
                 $end: timestamptz){
                     insert_result_distribution (objects: [{
-                        execution_id: $execution_id, 
                         request_result: $request_result, 
                         distribution_result: $distribution_result, 
                         start: $start, 
                         end: $end}]){
-                returning { id } }} 
+                affected_rows }} 
         ''')
         start = wrap_time.time()
         result = self.gql_client.execute(query, variable_values=test_report)
@@ -113,13 +111,12 @@ class BoltAPIClient(object):
                 $error_type: String, 
                 $exception_data: String, 
                 $number_of_occurrences: Int){
-                    insert_result_error (objects: [{
-                        execution_id: $execution_id, 
+                    insert_result_error (objects: [{ 
                         name: $name, 
                         error_type: $error_type, 
                         exception_data: $exception_data, 
                         number_of_occurrences: $number_of_occurrences}]){
-                returning { id }}}
+                affected_rows }}
         ''')
         start = wrap_time.time()
         result = self.gql_client.execute(query, variable_values=errors)

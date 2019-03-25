@@ -1,24 +1,25 @@
+import json
 import sys
 import os
 
 from gql import gql, Client
 from locust.main import main
-from gql.transport.requests import RequestsHTTPTransport
+from transport import WrappedTransport
 
 from logger import setup_custom_logger
 
 # Envs
 GRAPHQL_URL = os.getenv('GRAPHQL_URL')
 EXECUTION_ID = os.getenv('EXECUTION_ID')
-HASURA_GRAPHQL_ACCESS_KEY = os.getenv('HASURA_GRAPHQL_ACCESS_KEY')
-
+HASURA_TOKEN = os.getenv('HASURA_TOKEN')
 logger = setup_custom_logger(__name__)
+logger.info(f'token: {HASURA_TOKEN}')
 gql_client = Client(
     retries=0,
-    transport=RequestsHTTPTransport(
+    transport=WrappedTransport(
         url=GRAPHQL_URL,
         use_json=True,
-        headers={'X-Hasura-Access-Key': HASURA_GRAPHQL_ACCESS_KEY},
+        headers={'Authorization': f'Bearer {HASURA_TOKEN}'},
     )
 )
 
@@ -33,8 +34,8 @@ def get_data_for_execution():
         query ($execution_id: uuid) {
             execution(where: {id: {_eq: $execution_id}}) {
                 configuration {
-                    repository_id
-                    configurationParameters {
+                    code_source
+                    configuration_parameters {
                         value
                         parameter {
                             name
@@ -43,7 +44,7 @@ def get_data_for_execution():
                         }
                     }
                     test_creator_configuration_m2m(order_by: {created_at: desc_nulls_last}, limit: 1) {
-                        testCreator {
+                        test_creator {
                             created_at
                             data
                             max_wait
@@ -61,31 +62,37 @@ def get_data_for_execution():
 
 def set_environments_for_tests(data):
     try:
-        repository_id = data['execution'][0]['configuration']['repository_id']
-        test_creator = data['execution'][0]['configuration']['test_creator_configuration_m2m']
+        configuration = data['execution'][0]['configuration']
     except LookupError as ex:
         logger.info(f'Error during extracting test relations from database {ex}')
         _exit_with_status(1)
     else:
-        if repository_id and test_creator:
-            logger.info('Found defined Repository and Test Creator. Only one test source should be used.')
+        if configuration['code_source'] not in ('repository', 'creator'):
+            logger.info('Invalid code_source value.')
             _exit_with_status(1)
-        elif repository_id:
+        if configuration['code_source'] == 'repository':
             os.environ['LOCUSTFILE_NAME'] = 'locustfile'
             os.environ['MIN_WAIT'] = '50'
             os.environ['MAX_WAIT'] = '100'
-        elif test_creator:
+        elif configuration['code_source'] == 'creator':
             try:
-                test_creator = test_creator[0]['testCreator']
+                test_creator = configuration['test_creator_configuration_m2m'][0]['test_creator']
             except LookupError as ex:
                 logger.info(f'Error during getting data for Test Creator {ex}')
                 _exit_with_status(1)
+                return
             os.environ['LOCUSTFILE_NAME'] = 'locustfile_generic'
             os.environ['MIN_WAIT'] = str(test_creator['min_wait'])
             os.environ['MAX_WAIT'] = str(test_creator['max_wait'])
             test_creator_data = test_creator['data']
             if test_creator_data:
-                os.environ['TEST_CREATOR_DATA'] = test_creator_data
+                if isinstance(test_creator_data, dict):
+                    os.environ['TEST_CREATOR_DATA'] = json.dumps(test_creator_data)
+                elif isinstance(test_creator_data, str):
+                    os.environ['TEST_CREATOR_DATA'] = test_creator_data
+                else:
+                    logger.info(f'Found unknown type for test_creator_data: {type(test_creator_data)}')
+                    _exit_with_status(1)
             else:
                 logger.info(f'Cannot get data for test creator. Test creator data is {test_creator_data}')
                 _exit_with_status(1)
@@ -97,7 +104,7 @@ def set_environments_for_tests(data):
 def get_locust_arguments(data):
     argv = sys.argv or []
     try:
-        configurations = data['execution'][0]['configuration']['configurationParameters']
+        configurations = data['execution'][0]['configuration']['configuration_parameters']
         if not configurations:
             raise LookupError('No arguments for configurations')
     except LookupError as ex:

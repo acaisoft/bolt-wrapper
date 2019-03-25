@@ -1,4 +1,7 @@
+import json
+
 from typing import Dict
+from string import Template
 
 from exceptions import StatusCodeException, TimeException, BodyTextEqualException, BodyTextContainsException
 
@@ -49,12 +52,67 @@ def get_kwargs_for_endpoint(endpoint, global_headers):
     return kwargs
 
 
-def task_factory(method, url, asserts, **kwargs):
+def get_variable_from_dict_by_keys(data: dict, keys: list, first_iteration=True):
+    if first_iteration and (not data or not keys):
+        return None
+    try:
+        key = keys.pop(0)
+    except IndexError:
+        return data
+    else:
+        try:
+            _data = data[key]
+        except KeyError:
+            return None
+        return get_variable_from_dict_by_keys(_data, keys, first_iteration=False)
+
+
+def extract_variables_from_response(actions, response):
+    variables = {}
+    for action in actions or []:
+        if action['location'] == 'headers':
+            dict_data = response.headers
+        elif action['location'] == 'cookies':
+            dict_data = response.cookies.get_dict()
+        elif action['location'] == 'response':
+            try:
+                dict_data = response.json()
+            except (json.JSONDecodeError, ValueError):
+                continue
+        else:
+            continue
+        # extract variable from response data
+        variable_keys = action['variable_path'].split('.')
+        variable_value = get_variable_from_dict_by_keys(dict_data, variable_keys)
+        variables.update({action['variable_name']: variable_value})
+    return variables
+
+
+def render_variables_to_kwargs(variables: Dict, **kwargs):
+    """
+    Example of usage:
+        >>> my_kwargs = {'greeting': 'Hello ${name}', 'list': [1, 2 , 'My list ${list_value}']}
+        >>> my_variables = {'name': 'Tom', 'list_value': 3}
+        >>> render_variables_to_kwargs(my_variables, **my_kwargs)
+        >>> {'greeting': 'Hello Tom', 'list': [1, 2, 'My list 3']}
+    """
+    template = Template(json.dumps(kwargs))
+    rendered = template.safe_substitute(**variables)
+    return json.loads(rendered)
+
+
+def task_factory(method, url, asserts, actions, **kwargs):
     """
     Factory function which returning another function instance as locust task
     """
     def func(locust):
-        with locust.client.request(method, url, catch_response=True, **kwargs) as response:
+        updated_kwargs = render_variables_to_kwargs(locust.client.variables, **kwargs)
+        with locust.client.request(method, url, catch_response=True, **updated_kwargs) as response:
+            # handle actions
+            variables = extract_variables_from_response(actions, response)
+            if variables:
+                locust.client.variables.update(variables)
+            # handle failures
             endpoint_failed = False
             for _assert in asserts or []:
                 exception = check_response_for_failure(_assert, response)
@@ -76,15 +134,18 @@ def prepare_locust_data(data: Dict):
     global_headers = data.get('global_headers')
     setup = data.get('setup')
     teardown = data.get('teardown')
+    on_start = data.get('on_start')
+    on_stop = data.get('on_stop')
     # preparing locust tasks
     tasks = [] if test_type == 'sequence' else {}
     for endpoint in endpoints:
         kwargs = get_kwargs_for_endpoint(endpoint, global_headers)
-        task_instance = task_factory(endpoint['method'], endpoint['url'], endpoint.get('asserts'), **kwargs)
+        task_instance = task_factory(
+            endpoint['method'], endpoint['url'], endpoint.get('asserts'), endpoint.get('actions'), **kwargs)
         # if test type is 'sequence' we using list for storing tasks
         if isinstance(tasks, list):
             tasks.append(task_instance)
         # if test type is 'set' we using dict for storing tasks
         elif isinstance(tasks, dict):
             tasks.update({task_instance: endpoint['task_value']})
-    return tasks, setup, teardown
+    return tasks, setup, teardown, on_start, on_stop
