@@ -13,7 +13,10 @@ GRAPHQL_URL = os.getenv('GRAPHQL_URL')
 EXECUTION_ID = os.getenv('EXECUTION_ID')
 HASURA_TOKEN = os.getenv('HASURA_TOKEN')
 logger = setup_custom_logger(__name__)
-logger.info(f'token: {HASURA_TOKEN}')
+logger.info(f'run graphql: {GRAPHQL_URL}')
+logger.info(f'run execution id: {EXECUTION_ID}')
+logger.info(f'run token: {HASURA_TOKEN}')
+
 gql_client = Client(
     retries=0,
     transport=WrappedTransport(

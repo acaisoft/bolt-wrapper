@@ -25,6 +25,10 @@ LOCUSTFILE_NAME = wrap_os.getenv('LOCUSTFILE_NAME')
 wrap_locust_stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
 wrap_logger = setup_custom_logger(__name__)
 
+wrap_logger.info(f'wrap graphql: {GRAPHQL_URL}')
+wrap_logger.info(f'wrap execution id: {EXECUTION_ID}')
+wrap_logger.info(f'wrap token: {HASURA_TOKEN}')
+
 # dynamically import source code from locustfile with tests
 exec(f'from {LOCUSTFILE_NAME} import *')
 
