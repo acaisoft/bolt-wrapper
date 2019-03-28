@@ -13,6 +13,7 @@ GRAPHQL_URL = os.getenv('GRAPHQL_URL')
 EXECUTION_ID = os.getenv('EXECUTION_ID')
 HASURA_TOKEN = os.getenv('HASURA_TOKEN')
 logger = setup_custom_logger(__name__)
+
 logger.info(f'run graphql: {GRAPHQL_URL}')
 logger.info(f'run execution id: {EXECUTION_ID}')
 logger.info(f'run token: {HASURA_TOKEN}')
@@ -37,7 +38,6 @@ def get_data_for_execution():
         query ($execution_id: uuid) {
             execution(where: {id: {_eq: $execution_id}}) {
                 configuration {
-                    code_source
                     configuration_parameters {
                         value
                         parameter {
@@ -46,7 +46,10 @@ def get_data_for_execution():
                             param_type
                         }
                     }
-                    test_creator_configuration_m2m(order_by: {created_at: desc_nulls_last}, limit: 1) {
+                    
+                    test_source {
+                        source_type
+                        
                         test_creator {
                             created_at
                             data
@@ -70,16 +73,16 @@ def set_environments_for_tests(data):
         logger.info(f'Error during extracting test relations from database {ex}')
         _exit_with_status(1)
     else:
-        if configuration['code_source'] not in ('repository', 'creator'):
-            logger.info('Invalid code_source value.')
+        if configuration['test_source']['source_type'] not in ('repository', 'creator'):
+            logger.info('Invalid source_type value.')
             _exit_with_status(1)
-        if configuration['code_source'] == 'repository':
+        if configuration['test_source']['source_type'] == 'repository':
             os.environ['LOCUSTFILE_NAME'] = 'locustfile'
             os.environ['MIN_WAIT'] = '50'
             os.environ['MAX_WAIT'] = '100'
-        elif configuration['code_source'] == 'creator':
+        elif configuration['test_source']['source_type'] == 'creator':
             try:
-                test_creator = configuration['test_creator_configuration_m2m'][0]['test_creator']
+                test_creator = configuration['test_source']['test_creator']
             except LookupError as ex:
                 logger.info(f'Error during getting data for Test Creator {ex}')
                 _exit_with_status(1)
