@@ -1,14 +1,14 @@
 FROM python:3.7-alpine as base
 
+RUN apk add --no-cache -U zeromq-dev
 RUN addgroup -S bolt
 RUN adduser -D -S bolt -G bolt
 RUN chown -R bolt:bolt /home/bolt/
 
 FROM base as builder
 
-RUN apk add --no-cache -U zeromq-dev
 RUN apk add --no-cache -U --virtual build-deps g++
-COPY tests/requirements.txt /home/bolt/requirements.txt
+COPY requirements.bolt.txt /home/bolt/requirements.txt
 RUN pip install --install-option="--prefix=/install" -r /home/bolt/requirements.txt
 RUN apk del build-deps
 
