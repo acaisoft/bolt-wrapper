@@ -46,10 +46,8 @@ def get_data_for_execution():
                             param_type
                         }
                     }
-                    
                     test_source {
                         source_type
-                        
                         test_creator {
                             created_at
                             data

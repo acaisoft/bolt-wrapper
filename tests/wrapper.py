@@ -287,8 +287,8 @@ def quitting_handler():
         distribution_result = list(reader)
 
     test_report = {
-        'start': locust_wrapper.start_execution.isoformat() or wrap_datetime.datetime.now().isoformat(),
-        'end': locust_wrapper.end_execution.isoformat() or wrap_datetime.datetime.now().isoformat(),
+        'start': locust_wrapper.start_execution.isoformat(),
+        'end': locust_wrapper.end_execution.isoformat(),
         'execution_id': locust_wrapper.execution,
         'request_result': requests_result,
         'distribution_result': distribution_result
@@ -305,11 +305,17 @@ def start_handler():
     Will be called before starting test runner
     """
     wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
-    locust_wrapper.start_execution = wrap_datetime.datetime.now()
-    locust_wrapper.bolt_api_client.update_execution(
-        {'status': 'RUNNING', 'start': locust_wrapper.start_execution.isoformat()})
+    locust_wrapper.start_execution = wrap_datetime.datetime.now() - wrap_datetime.timedelta(seconds=2)
+    # insert empty record to stats
+    locust_wrapper.bolt_api_client.insert_aggregated_results({
+        'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.start_execution.isoformat(),
+        'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0,
+        'average_response_time': 0, 'average_response_size': 0
+    })
+    locust_wrapper.bolt_api_client.update_execution({
+        'status': 'RUNNING', 'start_locust': locust_wrapper.start_execution.isoformat()})
     if not locust_wrapper.dataset:
-        locust_wrapper.dataset.append({locust_wrapper.start_execution.timestamp(): []})
+        locust_wrapper.dataset.append({wrap_datetime.datetime.now().timestamp(): []})
 
 
 def stop_handler():
@@ -319,7 +325,7 @@ def stop_handler():
     wrap_logger.info(f'Finished locust tests with execution {EXECUTION_ID}')
     locust_wrapper.end_execution = wrap_datetime.datetime.now()
     locust_wrapper.bolt_api_client.update_execution(
-        {'status': 'FINISHED', 'end': locust_wrapper.end_execution.isoformat()})
+        {'status': 'FINISHED', 'end_locust': locust_wrapper.end_execution.isoformat()})
 
 
 wrap_events.locust_start_hatching += start_handler
