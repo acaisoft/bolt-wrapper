@@ -7,15 +7,19 @@ RUN chown -R bolt:bolt /home/bolt/
 
 FROM base as builder
 
+# install wrapper/locust requirements
 RUN apk add --no-cache -U --virtual build-deps g++
-COPY requirements.bolt.txt /home/bolt/requirements.txt
-RUN pip install --install-option="--prefix=/install" -r /home/bolt/requirements.txt
+COPY requirements.bolt.txt /home/bolt/requirements.bolt.txt
+RUN pip install --install-option="--prefix=/install" -r /home/bolt/requirements.bolt.txt
 RUN apk del build-deps
 
 FROM base
 COPY --from=builder /install /usr/local
 
 WORKDIR /home/bolt/tests
+# install user-supplied requirements
+COPY tests/requirements.txt /home/bolt/requirements.txt
+RUN pip install -r /home/bolt/requirements.txt
 COPY . /home/bolt/
 RUN chown -R bolt:bolt /home/bolt
 USER bolt
