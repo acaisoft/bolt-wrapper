@@ -1,6 +1,6 @@
 FROM python:3.7-alpine as base
 
-RUN apk add --no-cache -U zeromq-dev
+RUN apk add --no-cache -U zeromq-dev postgresql-libs gcc g++ musl-dev postgresql-dev
 RUN addgroup -S bolt
 RUN adduser -D -S bolt -G bolt
 RUN chown -R bolt:bolt /home/bolt/
@@ -8,20 +8,17 @@ RUN chown -R bolt:bolt /home/bolt/
 FROM base as builder
 
 # install wrapper/locust requirements
-RUN apk add --no-cache -U --virtual build-deps g++
 COPY requirements.bolt.txt /home/bolt/requirements.bolt.txt
-RUN pip install --install-option="--prefix=/install" -r /home/bolt/requirements.bolt.txt
-RUN apk del build-deps
+RUN pip install -r /home/bolt/requirements.bolt.txt
 
-FROM base
-COPY --from=builder /install /usr/local
+FROM builder
 
 WORKDIR /home/bolt/tests
 COPY . /home/bolt/
 RUN chown -R bolt:bolt /home/bolt
-USER bolt
 # install user-supplied requirements, these will be inserted by packer
 RUN pip install -r /home/bolt/requirements.txt
+USER bolt
 ENV PATH="/home/bolt/.local/bin:${PATH}"
 
 CMD ["python", "-m", "run"]
