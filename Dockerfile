@@ -20,8 +20,8 @@ WORKDIR /home/bolt/tests
 COPY . /home/bolt/
 RUN chown -R bolt:bolt /home/bolt
 USER bolt
-ENV PATH="/home/bolt/.local/bin:${PATH}"
 # install user-supplied requirements, these will be inserted by packer
 RUN pip install -r /home/bolt/requirements.txt
+ENV PATH="/home/bolt/.local/bin:${PATH}"
 
 CMD ["python", "-m", "run"]
