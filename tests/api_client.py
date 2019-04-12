@@ -4,6 +4,10 @@ from gql import gql, Client
 from transport import WrappedTransport
 from logger import setup_custom_logger, log_time_execution
 
+# TODO: temporary solution for disabling warnings
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # envs
 GRAPHQL_URL = os.getenv('GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('HASURA_TOKEN')

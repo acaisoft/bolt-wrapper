@@ -14,6 +14,10 @@ from locust import events as wrap_events
 from logger import setup_custom_logger as wrap_setup_custom_logger
 from api_client import BoltAPIClient as WrapBoltAPIClient
 
+# TODO: temporary solution for disabling warnings
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # Envs
 SENDING_INTERVAL_IN_SECONDS = int(wrap_os.getenv('SENDING_INTERVAL_IN_SECONDS', '2'))
 GRAPHQL_URL = wrap_os.getenv('GRAPHQL_URL')

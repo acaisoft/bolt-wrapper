@@ -7,6 +7,10 @@ from locust.main import main
 from logger import setup_custom_logger
 from api_client import BoltAPIClient
 
+# TODO: temporary solution for disabling warnings
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 # envs
 GRAPHQL_URL = os.getenv('GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('HASURA_TOKEN')
@@ -107,14 +111,14 @@ class LocustRunner(object):
     def prepare_master_arguments(self, expect_slaves):
         logger.info(f'Start preparing arguments for master.')
         self.bolt_api_client.insert_execution_instance({
-            'execution_id': EXECUTION_ID, 'status': 'READY', 'instance_type': WORKER_TYPE,
+            'status': 'READY', 'instance_type': WORKER_TYPE,
             'host': MASTER_HOST, 'port': 5557, 'expect_slaves': expect_slaves})
         return ['--master', f'--expect-slaves={expect_slaves}']  # additional arguments for master
 
     def prepare_slave_arguments(self):
         logger.info(f'Start preparing arguments for slave.')
         self.bolt_api_client.insert_execution_instance({
-            'execution_id': EXECUTION_ID, 'status': 'READY', 'instance_type': WORKER_TYPE})
+            'status': 'READY', 'instance_type': WORKER_TYPE})
         return ['--slave', f'--master-host={MASTER_HOST}']  # additional arguments for slave
 
 
