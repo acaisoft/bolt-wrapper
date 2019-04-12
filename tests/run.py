@@ -111,14 +111,13 @@ class LocustRunner(object):
     def prepare_master_arguments(self, expect_slaves):
         logger.info(f'Start preparing arguments for master.')
         self.bolt_api_client.insert_execution_instance({
-            'status': 'READY', 'instance_type': WORKER_TYPE,
-            'host': MASTER_HOST, 'port': 5557, 'expect_slaves': expect_slaves})
+            'status': 'READY', 'instance_type': WORKER_TYPE, 'expect_slaves': expect_slaves})
         return ['--master', f'--expect-slaves={expect_slaves}']  # additional arguments for master
 
     def prepare_slave_arguments(self):
         logger.info(f'Start preparing arguments for slave.')
         self.bolt_api_client.insert_execution_instance({
-            'status': 'READY', 'instance_type': WORKER_TYPE})
+            'host': MASTER_HOST, 'port': 5557, 'status': 'READY', 'instance_type': WORKER_TYPE})
         return ['--slave', f'--master-host={MASTER_HOST}']  # additional arguments for slave
 
 
