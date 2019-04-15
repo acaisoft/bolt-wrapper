@@ -9,7 +9,7 @@ import csv as wrap_csv
 import datetime as wrap_datetime
 import locust.stats as wrap_locust_stats
 
-from locust import events as wrap_events
+from locust import events as wrap_events, runners as wrap_runners
 
 from logger import setup_custom_logger as wrap_setup_custom_logger
 from api_client import BoltAPIClient as WrapBoltAPIClient
@@ -73,6 +73,7 @@ class LocustWrapper(object):
         stats['number_of_successes'] = len([el for el in elements if el['event_type'] == 'success'])
         stats['number_of_fails'] = len([el for el in elements if el['event_type'] == 'failure'])
         stats['number_of_errors'] = len(set([el['exception'] for el in elements if bool(el['exception'])]))
+        stats['number_of_users'] = wrap_runners.locust_runner.user_count
         average_response_time = sum([el['response_time'] for el in elements]) / float(len(elements))
         stats['average_response_time'] = round(average_response_time, 2)
         average_response_size = sum([el['response_length'] for el in elements]) / float(len(elements))
@@ -112,8 +113,9 @@ class LocustWrapper(object):
                 errors.extend(list(el['errors'].values()))
         stats['execution_id'] = self.execution
         stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
-        stats['number_of_successes'] = number_of_requests
+        stats['number_of_successes'] = number_of_requests - number_of_failures
         stats['number_of_fails'] = number_of_failures
+        stats['number_of_users'] = wrap_runners.locust_runner.user_count
         number_of_errors = len(set(
             ['{1}/{1}/{2}'.format(error['method'], error['name'], error['error']) for error in errors]))
         stats['number_of_errors'] = number_of_errors
@@ -274,7 +276,7 @@ def start_handler():
         # insert empty record to stats
         locust_wrapper.bolt_api_client.insert_aggregated_results({
             'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.start_execution.isoformat(),
-            'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0,
+            'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0, 'number_of_users': 0,
             'average_response_time': 0, 'average_response_size': 0
         })
         locust_wrapper.bolt_api_client.update_execution(

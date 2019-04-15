@@ -129,7 +129,7 @@ if __name__ == '__main__':
     additional_arguments = None
     is_master, is_slave = locust_runner.master_slave_detector()
     if is_master:
-        number_of_slaves = execution_data['execution'][0]['configuration']['instances'] - 1
+        number_of_slaves = execution_data['execution'][0]['configuration']['instances']
         additional_arguments = locust_runner.prepare_master_arguments(number_of_slaves)
     elif is_slave:
         additional_arguments = locust_runner.prepare_slave_arguments()
