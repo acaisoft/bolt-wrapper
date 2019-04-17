@@ -256,7 +256,7 @@ def quitting_handler():
             if v.get('Name', None) == 'Total':
                 dt = locust_wrapper.end_execution - locust_wrapper.start_execution
                 num_requests = int(v.get('# requests', 0))
-                requests_result[index]['Requests/s'] = num_requests / dt.seconds
+                requests_result[index]['Requests/s'] = '%.2f' % (num_requests / dt.seconds)
                 break
 
         locust_wrapper.bolt_api_client.insert_distribution_results({
