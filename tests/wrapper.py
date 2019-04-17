@@ -251,6 +251,14 @@ def quitting_handler():
             reader = wrap_csv.DictReader(f)
             distribution_result = list(reader)
 
+        # correct requests/s number to be the average of all requests made over time the test run
+        for index, v in enumerate(requests_result):
+            if v.get('Name', None) == 'Total':
+                dt = locust_wrapper.end_execution - locust_wrapper.start_execution
+                num_requests = int(v.get('# requests', 0))
+                requests_result[index]['Requests/s'] = num_requests / dt.seconds
+                break
+
         locust_wrapper.bolt_api_client.insert_distribution_results({
             'start': locust_wrapper.start_execution.isoformat(),
             'end': locust_wrapper.end_execution.isoformat(),
