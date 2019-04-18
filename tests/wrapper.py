@@ -252,12 +252,11 @@ def quitting_handler():
             distribution_result = list(reader)
 
         # correct requests/s number to be the average of all requests made over time the test run
+        dt = locust_wrapper.end_execution - locust_wrapper.start_execution
         for index, v in enumerate(requests_result):
-            if v.get('Name', None) == 'Total':
-                dt = locust_wrapper.end_execution - locust_wrapper.start_execution
-                num_requests = int(v.get('# requests', 0))
-                requests_result[index]['Requests/s'] = '%.2f' % (num_requests / dt.seconds)
-                break
+            num_requests = v.get('# requests', None)
+            if num_requests:
+                requests_result[index]['Requests/s'] = '%.2f' % (int(num_requests) / dt.seconds)
 
         locust_wrapper.bolt_api_client.insert_distribution_results({
             'start': locust_wrapper.start_execution.isoformat(),
