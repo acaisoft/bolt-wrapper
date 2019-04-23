@@ -277,6 +277,14 @@ def quitting_handler():
         for error_item in list(locust_wrapper.errors.items()):
             _, value = error_item
             locust_wrapper.bolt_api_client.insert_error_results(value)
+
+        # insert empty record to stats at end
+        locust_wrapper.bolt_api_client.insert_aggregated_results({
+            'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.end_execution.isoformat(),
+            'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0, 'number_of_users': 0,
+            'average_response_time': 0, 'average_response_size': 0
+        })
+
         locust_wrapper.is_finished = True
 
 
@@ -288,7 +296,7 @@ def start_handler():
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
         locust_wrapper.start_execution = wrap_datetime.datetime.now() - wrap_datetime.timedelta(
             seconds=SENDING_INTERVAL_IN_SECONDS)
-        # insert empty record to stats
+        # insert empty record to stats at beginning
         locust_wrapper.bolt_api_client.insert_aggregated_results({
             'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.start_execution.isoformat(),
             'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0, 'number_of_users': 0,
