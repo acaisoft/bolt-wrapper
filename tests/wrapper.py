@@ -251,11 +251,20 @@ def quitting_handler():
             reader = wrap_csv.DictReader(f)
             distribution_result = list(reader)
 
-        # correct requests/s number to be the average of all requests made over time the test run
+        # remove Total from data (doesn't make sense in different columns)
         for index, v in enumerate(requests_result):
             if v.get('Name', None) == 'Total':
                 requests_result.pop(index)
                 break
+
+        # split contents of distribution's Name into Method-Description
+        for index, v in enumerate(distribution_result):
+            dist_name = v.get('Name', None)
+            if dist_name:
+                parts = dist_name.split(' ', 1)
+                if len(parts) > 1:
+                    distribution_result[index]['Method'] = parts[0]
+                    distribution_result[index]['Name'] = parts[1]
 
         locust_wrapper.bolt_api_client.insert_distribution_results({
             'start': locust_wrapper.start_execution.isoformat(),
