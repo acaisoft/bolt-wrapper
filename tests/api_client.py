@@ -90,7 +90,7 @@ class BoltAPIClient(object):
                     if not (r["Name"] == "Total" and r["Method"] == "None"):
                         stats['requests'].append({
                             'timestamp': ts,
-                            'identifier': r['Method'].strip().lower() + ' ' + r['Name'].strip().lower(),
+                            'identifier': str(hash(r['Method'].strip().lower() + ' ' + r['Name'].strip().lower())),
                             'method': r['Method'],
                             'name': r['Name'],
                             'num_requests': r['# requests'],
@@ -112,7 +112,7 @@ class BoltAPIClient(object):
                     if not r["Name"] == "Total":
                         stats['distributions'].append({
                             'timestamp': ts,
-                            'identifier': r['Name'].strip().lower(),
+                            'identifier': str(hash(r['Name'].strip().lower())),
                             'method': r['Name'].split()[0],
                             'name': ' '.join(r['Name'].split()[1:]),
                             'num_requests': r['# requests'],
