@@ -1,4 +1,6 @@
+import csv
 import os
+from datetime import datetime
 
 from gql import gql, Client
 from transport import WrappedTransport
@@ -6,6 +8,7 @@ from logger import setup_custom_logger, log_time_execution
 
 # TODO: temporary solution for disabling warnings
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
@@ -19,6 +22,7 @@ class BoltAPIClient(object):
     """
     GraphQL client for communication with Bolt API (hasura)
     """
+
     def __init__(self):
         self.gql_client = Client(
             retries=0,
@@ -75,25 +79,81 @@ class BoltAPIClient(object):
 
     @log_time_execution(logger)
     def insert_aggregated_results(self, stats):
+        ts = datetime.now().isoformat()
+        stats['requests'] = []
+        stats['distributions'] = []
+
+        # open report with requests and save to db
+        if os.path.exists('test_report_requests.csv'):
+            with open('test_report_requests.csv') as f:
+                for r in csv.DictReader(f):
+                    if not (r["Name"] == "Total" and r["Method"] == "None"):
+                        stats['requests'].append({
+                            'timestamp': ts,
+                            'identifier': r['Method'].strip().lower() + ' ' + r['Name'].strip().lower(),
+                            'method': r['Method'],
+                            'name': r['Name'],
+                            'num_requests': r['# requests'],
+                            'num_failures': r['# failures'],
+                            'median_response_time': r['Median response time'],
+                            'average_response_time': r['Average response time'],
+                            'min_response_time': r['Min response time'],
+                            'max_response_time': r['Max response time'],
+                            'average_content_size': r['Average Content Size'],
+                            'requests_per_second': r['Requests/s'],
+                        })
+        else:
+            logger.warn('no requests file')
+
+        # open report with distributions and save to variable
+        if os.path.exists('test_report_distribution.csv'):
+            with open('test_report_distribution.csv') as f:
+                for r in csv.DictReader(f):
+                    if not r["Name"] == "Total":
+                        stats['distributions'].append({
+                            'timestamp': ts,
+                            'identifier': r['Name'].strip().lower(),
+                            'method': r['Name'].split()[0],
+                            'name': ' '.join(r['Name'].split()[1:]),
+                            'num_requests': r['# requests'],
+                            'p50': r['50%'],
+                            'p66': r['66%'],
+                            'p75': r['75%'],
+                            'p80': r['80%'],
+                            'p90': r['90%'],
+                            'p95': r['95%'],
+                            'p98': r['98%'],
+                            'p99': r['99%'],
+                            'p100': r['100%'],
+                        })
+        else:
+            logger.warn('no distributions file')
+
         query = gql('''
             mutation (
+                $requests:[execution_requests_insert_input!]!, 
+                $distributions:[execution_distribution_insert_input!]!,
                 $execution_id: uuid, 
                 $timestamp: timestamptz, 
                 $number_of_successes: Int, 
                 $number_of_fails: Int, 
                 $number_of_errors: Int,
                 $number_of_users: Int, 
-                $average_response_time: Float, 
-                $average_response_size: Float){ 
-                    insert_result_aggregate(objects: [{ 
-                        timestamp: $timestamp, 
-                        number_of_successes: $number_of_successes, 
-                        number_of_fails: $number_of_fails, 
-                        number_of_errors: $number_of_errors, 
-                        number_of_users: $number_of_users, 
-                        average_response_time: $average_response_time, 
-                        average_response_size: $average_response_size}]){
-                affected_rows }}
+                $average_response_time: numeric, 
+                $average_response_size: numeric
+            ){ 
+                insert_execution_requests(objects: $requests) { affected_rows }
+                insert_execution_distribution(objects: $distributions) { affected_rows }
+                insert_result_aggregate(objects: [{ 
+                    timestamp: $timestamp, 
+                    number_of_successes: $number_of_successes, 
+                    number_of_fails: $number_of_fails, 
+                    number_of_errors: $number_of_errors, 
+                    number_of_users: $number_of_users, 
+                    average_response_time: $average_response_time, 
+                    average_response_size: $average_response_size
+                }]) { affected_rows }
+            }
         ''')
         result = self.gql_client.execute(query, variable_values=stats)
         return result
@@ -106,13 +166,15 @@ class BoltAPIClient(object):
                 $request_result: json, 
                 $distribution_result: json, 
                 $start: timestamptz, 
-                $end: timestamptz){
-                    insert_result_distribution (objects: [{
-                        request_result: $request_result, 
-                        distribution_result: $distribution_result, 
-                        start: $start, 
-                        end: $end}]){
-                affected_rows }} 
+                $end: timestamptz
+            ) {
+                insert_result_distribution (objects: [{
+                    request_result: $request_result, 
+                    distribution_result: $distribution_result, 
+                    start: $start, 
+                    end: $end
+                }]){ affected_rows }
+            } 
         ''')
         result = self.gql_client.execute(query, variable_values=test_report)
         return result

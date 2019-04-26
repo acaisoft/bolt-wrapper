@@ -236,7 +236,7 @@ def quitting_handler():
         # save remaining data from 'dataset' list
         locust_wrapper.save_stats(send_all=True)
         sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
-        wrap_logger.info(f'Sum success: {sum_success}. Stats {locust_wrapper.stats}. Errors {locust_wrapper.errors}')
+        wrap_logger.info(f'Sum success: {sum_success}. Stats {len(locust_wrapper.stats)}. Errors {len(locust_wrapper.errors)}')
         wrap_logger.info(f'Start: {locust_wrapper.start_execution}. End: {locust_wrapper.end_execution}')
         # wait for updating data
         wrap_time.sleep(SENDING_INTERVAL_IN_SECONDS)
@@ -328,7 +328,7 @@ def save_to_database(stats):
     try:
         locust_wrapper.stats_queue.remove(stats)
     except ValueError:
-        wrap_logger.info(f'Stats {stats} does not exist in queue {locust_wrapper.stats_queue}')
+        wrap_logger.info(f'Stats does not exist in queue {locust_wrapper.stats_queue}')
 
 
 if WORKER_TYPE == 'master':

@@ -21,7 +21,7 @@ def log_time_execution(logger):
             start = time.time()
             result = func(*args, **kwargs)
             end = time.time()
-            logger.info(f'Function {func.__name__} ran in {round(end - start, 2)}s. Args: {args}. Kwargs: {kwargs}')
+            logger.info(f'Function {func.__name__} ran in {round(end - start, 2)}s.')
             return result
         return wrapper
     return decorator
