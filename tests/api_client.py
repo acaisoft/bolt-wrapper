@@ -21,7 +21,7 @@ class BoltAPIClient(object):
     """
     def __init__(self):
         self.gql_client = Client(
-            retries=0,
+            retries=5,
             transport=WrappedTransport(
                 url=GRAPHQL_URL,
                 use_json=True,
