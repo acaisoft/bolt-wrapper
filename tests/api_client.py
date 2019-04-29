@@ -48,6 +48,10 @@ class BoltAPIClient(object):
                                 param_type
                             }
                         }
+                        configuration_envvars {
+                            name
+                            value
+                        }
                         test_source {
                             source_type
                             test_creator {

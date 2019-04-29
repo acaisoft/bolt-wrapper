@@ -328,7 +328,7 @@ def save_to_database(stats):
     try:
         locust_wrapper.stats_queue.remove(stats)
     except ValueError:
-        wrap_logger.info(f'Stats does not exist in queue {locust_wrapper.stats_queue}')
+        wrap_logger.info(f'Stats does not exist in queue {len(locust_wrapper.stats_queue)}')
 
 
 if WORKER_TYPE == 'master':

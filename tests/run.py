@@ -44,11 +44,12 @@ class LocustRunner(object):
             logger.info(f'Error during extracting test relations from database {ex}')
             _exit_with_status(1)
         else:
-            for envs in configuration.get('configuration_envvars', []):
-                os.environ[f'BOLT_{envs["name"]}'] = envs['value']
             if configuration['test_source']['source_type'] not in ('repository', 'test_creator'):
                 logger.info('Invalid source_type value.')
                 _exit_with_status(1)
+            for envs in configuration.get('configuration_envvars', []):
+                logger.info(f'run env "BOLT_{envs["name"]}" == "{envs["value"]}"')
+                os.environ[f'BOLT_{envs["name"]}'] = envs['value']
             if configuration['test_source']['source_type'] == 'repository':
                 os.environ['LOCUSTFILE_NAME'] = 'locustfile'
                 os.environ['MIN_WAIT'] = '50'
