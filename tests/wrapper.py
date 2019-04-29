@@ -324,7 +324,12 @@ def save_to_database(stats):
     """
     # TODO: it is hotfix, need to find why we getting None item inside 'stats'
     if stats is not None and stats:
-        locust_wrapper.bolt_api_client.insert_aggregated_results(stats)
+        try:
+            locust_wrapper.bolt_api_client.insert_aggregated_results(stats)
+        except:
+            wrap_logger.exception('Failed to insert aggregated results results. '
+                                  'Error ignored and execution continues.')
+            return
     try:
         locust_wrapper.stats_queue.remove(stats)
     except ValueError:
