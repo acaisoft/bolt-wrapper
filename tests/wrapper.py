@@ -47,7 +47,8 @@ class LocustWrapper(object):
     is_finished = False
 
     def __init__(self):
-        self.bolt_api_client = WrapBoltAPIClient()
+        if WORKER_TYPE != 'slave':
+            self.bolt_api_client = WrapBoltAPIClient()
         self.execution = EXECUTION_ID
 
     def prepare_stats_by_interval_common(self, data):
