@@ -19,12 +19,12 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Envs
-SENDING_INTERVAL_IN_SECONDS = int(wrap_os.getenv('SENDING_INTERVAL_IN_SECONDS', '2'))
-GRAPHQL_URL = wrap_os.getenv('GRAPHQL_URL')
-HASURA_TOKEN = wrap_os.getenv('HASURA_TOKEN')
-EXECUTION_ID = wrap_os.getenv('EXECUTION_ID')
-WORKER_TYPE = wrap_os.getenv('WORKER_TYPE')
-LOCUSTFILE_NAME = wrap_os.getenv('LOCUSTFILE_NAME')
+SENDING_INTERVAL_IN_SECONDS = int(wrap_os.getenv('BOLT_SENDING_INTERVAL_IN_SECONDS', '2'))
+GRAPHQL_URL = wrap_os.getenv('BOLT_GRAPHQL_URL')
+HASURA_TOKEN = wrap_os.getenv('BOLT_HASURA_TOKEN')
+EXECUTION_ID = wrap_os.getenv('BOLT_EXECUTION_ID')
+WORKER_TYPE = wrap_os.getenv('BOLT_WORKER_TYPE')
+LOCUSTFILE_NAME = wrap_os.getenv('BOLT_LOCUSTFILE_NAME')
 
 wrap_locust_stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
 wrap_logger = wrap_setup_custom_logger(__name__)
@@ -47,7 +47,8 @@ class LocustWrapper(object):
     is_finished = False
 
     def __init__(self):
-        self.bolt_api_client = WrapBoltAPIClient()
+        if WORKER_TYPE != 'slave':
+            self.bolt_api_client = WrapBoltAPIClient()
         self.execution = EXECUTION_ID
 
     def prepare_stats_by_interval_common(self, data):
@@ -236,32 +237,23 @@ def quitting_handler():
         # save remaining data from 'dataset' list
         locust_wrapper.save_stats(send_all=True)
         sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
-        wrap_logger.info(f'Sum success: {sum_success}. Stats {locust_wrapper.stats}. Errors {locust_wrapper.errors}')
+        wrap_logger.info(f'Sum success: {sum_success}. Stats {len(locust_wrapper.stats)}. Errors {len(locust_wrapper.errors)}')
         wrap_logger.info(f'Start: {locust_wrapper.start_execution}. End: {locust_wrapper.end_execution}')
         # wait for updating data
         wrap_time.sleep(SENDING_INTERVAL_IN_SECONDS)
 
-        # open report with requests and save to variable
-        with open('test_report_requests.csv') as f:
-            reader = wrap_csv.DictReader(f)
-            requests_result = list(reader)
-
-        # open report with distributions and save to variable
-        with open('test_report_distribution.csv') as f:
-            reader = wrap_csv.DictReader(f)
-            distribution_result = list(reader)
-
-        locust_wrapper.bolt_api_client.insert_distribution_results({
-            'start': locust_wrapper.start_execution.isoformat(),
-            'end': locust_wrapper.end_execution.isoformat(),
-            'execution_id': locust_wrapper.execution,
-            'request_result': requests_result,
-            'distribution_result': distribution_result
-        })
         # prepare and send error results to database
         for error_item in list(locust_wrapper.errors.items()):
             _, value = error_item
             locust_wrapper.bolt_api_client.insert_error_results(value)
+
+        # insert empty record to stats at end
+        locust_wrapper.bolt_api_client.insert_aggregated_results({
+            'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.end_execution.isoformat(),
+            'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0, 'number_of_users': 0,
+            'average_response_time': 0, 'average_response_size': 0
+        })
+
         locust_wrapper.is_finished = True
 
 
@@ -273,7 +265,7 @@ def start_handler():
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
         locust_wrapper.start_execution = wrap_datetime.datetime.now() - wrap_datetime.timedelta(
             seconds=SENDING_INTERVAL_IN_SECONDS)
-        # insert empty record to stats
+        # insert empty record to stats at beginning
         locust_wrapper.bolt_api_client.insert_aggregated_results({
             'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.start_execution.isoformat(),
             'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0, 'number_of_users': 0,
@@ -301,11 +293,16 @@ def save_to_database(stats):
     """
     # TODO: it is hotfix, need to find why we getting None item inside 'stats'
     if stats is not None and stats:
-        locust_wrapper.bolt_api_client.insert_aggregated_results(stats)
+        try:
+            locust_wrapper.bolt_api_client.insert_aggregated_results(stats)
+        except:
+            wrap_logger.exception('Failed to insert aggregated results results. '
+                                  'Error ignored and execution continues.')
+            return
     try:
         locust_wrapper.stats_queue.remove(stats)
     except ValueError:
-        wrap_logger.info(f'Stats {stats} does not exist in queue {locust_wrapper.stats_queue}')
+        wrap_logger.info(f'Stats does not exist in queue {len(locust_wrapper.stats_queue)}')
 
 
 if WORKER_TYPE == 'master':
