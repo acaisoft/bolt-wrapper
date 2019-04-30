@@ -249,11 +249,11 @@ def quitting_handler():
             locust_wrapper.bolt_api_client.insert_error_results(value)
 
         # insert empty record to stats at end
-        locust_wrapper.bolt_api_client.insert_aggregated_results({
-            'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.end_execution.isoformat(),
-            'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0, 'number_of_users': 0,
-            'average_response_time': 0, 'average_response_size': 0
-        })
+        # locust_wrapper.bolt_api_client.insert_aggregated_results({
+        #     'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.end_execution.isoformat(),
+        #     'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0, 'number_of_users': 0,
+        #     'average_response_time': 0, 'average_response_size': 0
+        # })
 
         locust_wrapper.is_finished = True
 
