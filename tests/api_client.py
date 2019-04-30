@@ -12,8 +12,8 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-GRAPHQL_URL = os.getenv('GRAPHQL_URL')
-HASURA_TOKEN = os.getenv('HASURA_TOKEN')
+GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
+HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 
 logger = setup_custom_logger(__name__)
 
@@ -94,7 +94,7 @@ class BoltAPIClient(object):
                     if not (r["Name"] == "Total" and r["Method"] == "None"):
                         stats['requests'].append({
                             'timestamp': ts,
-                            'identifier': str(hash(r['Method'].strip().lower() + ' ' + r['Name'].strip().lower())),
+                            'identifier': str(abs(hash(r['Method'].strip().lower() + ' ' + r['Name'].strip().lower()))),
                             'method': r['Method'],
                             'name': r['Name'],
                             'num_requests': r['# requests'],
@@ -116,7 +116,7 @@ class BoltAPIClient(object):
                     if not r["Name"] == "Total":
                         stats['distributions'].append({
                             'timestamp': ts,
-                            'identifier': str(hash(r['Name'].strip().lower())),
+                            'identifier': str(abs(hash(r['Name'].strip().lower()))),
                             'method': r['Name'].split()[0],
                             'name': ' '.join(r['Name'].split()[1:]),
                             'num_requests': r['# requests'],

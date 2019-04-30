@@ -19,12 +19,12 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Envs
-SENDING_INTERVAL_IN_SECONDS = int(wrap_os.getenv('SENDING_INTERVAL_IN_SECONDS', '2'))
-GRAPHQL_URL = wrap_os.getenv('GRAPHQL_URL')
-HASURA_TOKEN = wrap_os.getenv('HASURA_TOKEN')
-EXECUTION_ID = wrap_os.getenv('EXECUTION_ID')
-WORKER_TYPE = wrap_os.getenv('WORKER_TYPE')
-LOCUSTFILE_NAME = wrap_os.getenv('LOCUSTFILE_NAME')
+SENDING_INTERVAL_IN_SECONDS = int(wrap_os.getenv('BOLT_SENDING_INTERVAL_IN_SECONDS', '2'))
+GRAPHQL_URL = wrap_os.getenv('BOLT_GRAPHQL_URL')
+HASURA_TOKEN = wrap_os.getenv('BOLT_HASURA_TOKEN')
+EXECUTION_ID = wrap_os.getenv('BOLT_EXECUTION_ID')
+WORKER_TYPE = wrap_os.getenv('BOLT_WORKER_TYPE')
+LOCUSTFILE_NAME = wrap_os.getenv('BOLT_LOCUSTFILE_NAME')
 
 wrap_locust_stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
 wrap_logger = wrap_setup_custom_logger(__name__)
@@ -242,38 +242,6 @@ def quitting_handler():
         # wait for updating data
         wrap_time.sleep(SENDING_INTERVAL_IN_SECONDS)
 
-        # open report with requests and save to variable
-        with open('test_report_requests.csv') as f:
-            reader = wrap_csv.DictReader(f)
-            requests_result = list(reader)
-
-        # open report with distributions and save to variable
-        with open('test_report_distribution.csv') as f:
-            reader = wrap_csv.DictReader(f)
-            distribution_result = list(reader)
-
-        # remove Total from data (doesn't make sense in different columns)
-        for index, v in enumerate(requests_result):
-            if v.get('Name', None) == 'Total':
-                requests_result.pop(index)
-                break
-
-        # split contents of distribution's Name into Method-Description
-        for index, v in enumerate(distribution_result):
-            dist_name = v.get('Name', None)
-            if dist_name:
-                parts = dist_name.split(' ', 1)
-                if len(parts) > 1:
-                    distribution_result[index]['Method'] = parts[0]
-                    distribution_result[index]['Name'] = parts[1]
-
-        locust_wrapper.bolt_api_client.insert_distribution_results({
-            'start': locust_wrapper.start_execution.isoformat(),
-            'end': locust_wrapper.end_execution.isoformat(),
-            'execution_id': locust_wrapper.execution,
-            'request_result': requests_result,
-            'distribution_result': distribution_result
-        })
         # prepare and send error results to database
         for error_item in list(locust_wrapper.errors.items()):
             _, value = error_item

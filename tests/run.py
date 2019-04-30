@@ -12,15 +12,15 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-GRAPHQL_URL = os.getenv('GRAPHQL_URL')
-HASURA_TOKEN = os.getenv('HASURA_TOKEN')
-EXECUTION_ID = os.getenv('EXECUTION_ID')
-WORKER_TYPE = os.getenv('WORKER_TYPE')
-MASTER_HOST = os.getenv('MASTER_HOST')
+GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
+HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
+EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
+WORKER_TYPE = os.getenv('BOLT_WORKER_TYPE')
+MASTER_HOST = os.getenv('BOLT_MASTER_HOST')
 
 # logger
 logger = setup_custom_logger(__name__)
-logger.info('run v0.1.14')
+logger.info('run v0.1.15')
 logger.info(f'run graphql: {GRAPHQL_URL}')
 logger.info(f'run execution id: {EXECUTION_ID}')
 logger.info(f'run token: {HASURA_TOKEN}')
@@ -48,12 +48,12 @@ class LocustRunner(object):
                 logger.info('Invalid source_type value.')
                 _exit_with_status(1)
             for envs in configuration.get('configuration_envvars', []):
-                logger.info(f'run env "BOLT_{envs["name"]}" == "{envs["value"]}"')
-                os.environ[f'BOLT_{envs["name"]}'] = envs['value']
+                logger.info(f'run env "{envs["name"]}" == "{envs["value"]}"')
+                os.environ[f'{envs["name"]}'] = envs['value']
             if configuration['test_source']['source_type'] == 'repository':
-                os.environ['LOCUSTFILE_NAME'] = 'locustfile'
-                os.environ['MIN_WAIT'] = '50'
-                os.environ['MAX_WAIT'] = '100'
+                os.environ['BOLT_LOCUSTFILE_NAME'] = 'locustfile'
+                os.environ['BOLT_MIN_WAIT'] = '50'
+                os.environ['BOLT_MAX_WAIT'] = '100'
             elif configuration['test_source']['source_type'] == 'test_creator':
                 try:
                     test_creator = configuration['test_source']['test_creator']
@@ -61,15 +61,15 @@ class LocustRunner(object):
                     logger.info(f'Error during getting data for Test Creator {ex}')
                     _exit_with_status(1)
                     return
-                os.environ['LOCUSTFILE_NAME'] = 'locustfile_generic'
-                os.environ['MIN_WAIT'] = str(test_creator['min_wait'])
-                os.environ['MAX_WAIT'] = str(test_creator['max_wait'])
+                os.environ['BOLT_LOCUSTFILE_NAME'] = 'locustfile_generic'
+                os.environ['BOLT_MIN_WAIT'] = str(test_creator['min_wait'])
+                os.environ['BOLT_MAX_WAIT'] = str(test_creator['max_wait'])
                 test_creator_data = test_creator['data']
                 if test_creator_data:
                     if isinstance(test_creator_data, dict):
-                        os.environ['TEST_CREATOR_DATA'] = json.dumps(test_creator_data)
+                        os.environ['BOLT_TEST_CREATOR_DATA'] = json.dumps(test_creator_data)
                     elif isinstance(test_creator_data, str):
-                        os.environ['TEST_CREATOR_DATA'] = test_creator_data
+                        os.environ['BOLT_TEST_CREATOR_DATA'] = test_creator_data
                     else:
                         logger.info(f'Found unknown type for test_creator_data: {type(test_creator_data)}')
                         _exit_with_status(1)
