@@ -8,7 +8,7 @@ import time as wrap_time
 import csv as wrap_csv
 import datetime as wrap_datetime
 import locust.stats as wrap_locust_stats
-from gevent import greenlet
+from gevent import GreenletExit
 
 from locust import events as wrap_events, runners as wrap_runners
 
@@ -296,7 +296,7 @@ def save_to_database(stats):
     if stats is not None and stats:
         try:
             locust_wrapper.bolt_api_client.insert_aggregated_results(stats)
-        except greenlet.GreenletExit:
+        except GreenletExit:
             raise
         except:
             wrap_logger.exception('Failed to insert aggregated results results. '
