@@ -5,11 +5,10 @@ For all imports we adding `wrap_` prefix.
 """
 import os as wrap_os
 import time as wrap_time
-import csv as wrap_csv
 import datetime as wrap_datetime
 import locust.stats as wrap_locust_stats
-from gevent import GreenletExit
 
+from gevent import GreenletExit
 from locust import events as wrap_events, runners as wrap_runners
 
 from logger import setup_custom_logger as wrap_setup_custom_logger
@@ -42,6 +41,7 @@ class LocustWrapper(object):
     errors = {}
     stats = []
     stats_queue = []
+    users = []
     start_execution: wrap_datetime.datetime = None
     end_execution: wrap_datetime.datetime = None
     is_started = False
@@ -75,12 +75,16 @@ class LocustWrapper(object):
         stats['number_of_successes'] = len([el for el in elements if el['event_type'] == 'success'])
         stats['number_of_fails'] = len([el for el in elements if el['event_type'] == 'failure'])
         stats['number_of_errors'] = len(set([el['exception'] for el in elements if bool(el['exception'])]))
-        stats['number_of_users'] = wrap_runners.locust_runner.user_count
+        number_of_users = wrap_runners.locust_runner.user_count
+        if number_of_users == 0 and len(self.users):
+            number_of_users = int(sum(self.users) / len(self.users) * 0.60)
+        stats['number_of_users'] = number_of_users
         average_response_time = sum([el['response_time'] for el in elements]) / float(len(elements))
         stats['average_response_time'] = round(average_response_time, 2)
         average_response_size = sum([el['response_length'] for el in elements]) / float(len(elements))
         stats['average_response_size'] = round(average_response_size, 2)
         self.stats.append(stats)
+        self.users.append(wrap_runners.locust_runner.user_count)
         return stats
 
     def prepare_stats_by_interval_master(self, data):
@@ -117,9 +121,12 @@ class LocustWrapper(object):
         stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
         stats['number_of_successes'] = number_of_requests - number_of_failures
         stats['number_of_fails'] = number_of_failures
-        stats['number_of_users'] = wrap_runners.locust_runner.user_count
+        number_of_users = wrap_runners.locust_runner.user_count
+        if number_of_users == 0 and len(self.users):
+            number_of_users = int(sum(self.users) / len(self.users) * 0.60)
+        stats['number_of_users'] = number_of_users
         number_of_errors = len(set(
-            ['{1}/{1}/{2}'.format(error['method'], error['name'], error['error']) for error in errors]))
+            ['{0}/{1}/{2}'.format(error['method'], error['name'], error['error']) for error in errors]))
         stats['number_of_errors'] = number_of_errors
         try:
             stats['average_response_time'] = int(float(total_response_time) / number_of_requests)
@@ -134,6 +141,7 @@ class LocustWrapper(object):
             wrap_logger.info(f'{total_content_length} | {number_of_requests} | {ex}')
             stats['average_response_size'] = 0
         self.stats.append(stats)
+        self.users.append(wrap_runners.locust_runner.user_count)
         return stats
 
     def save_stats(self, send_all=False):
@@ -238,23 +246,15 @@ def quitting_handler():
         # save remaining data from 'dataset' list
         locust_wrapper.save_stats(send_all=True)
         sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
-        wrap_logger.info(f'Sum success: {sum_success}. Stats {len(locust_wrapper.stats)}. Errors {len(locust_wrapper.errors)}')
-        wrap_logger.info(f'Start: {locust_wrapper.start_execution}. End: {locust_wrapper.end_execution}')
+        wrap_logger.info(f'Number of success: {sum_success}. Number of errors {len(locust_wrapper.errors)}')
+        wrap_logger.info(f'Count stats {len(locust_wrapper.stats)}')
+        wrap_logger.info(f'Locust start: {locust_wrapper.start_execution}. Locust end: {locust_wrapper.end_execution}')
         # wait for updating data
         wrap_time.sleep(SENDING_INTERVAL_IN_SECONDS)
-
         # prepare and send error results to database
         for error_item in list(locust_wrapper.errors.items()):
             _, value = error_item
             locust_wrapper.bolt_api_client.insert_error_results(value)
-
-        # insert empty record to stats at end
-        # locust_wrapper.bolt_api_client.insert_aggregated_results({
-        #     'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.end_execution.isoformat(),
-        #     'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0, 'number_of_users': 0,
-        #     'average_response_time': 0, 'average_response_size': 0
-        # })
-
         locust_wrapper.is_finished = True
 
 
@@ -296,11 +296,12 @@ def save_to_database(stats):
     if stats is not None and stats:
         try:
             locust_wrapper.bolt_api_client.insert_aggregated_results(stats)
-        except GreenletExit:
+        except GreenletExit as ex:
+            wrap_logger.info(f'Caught GreenletExit exception during stats saving. {ex}')
             raise
         except:
-            wrap_logger.exception('Failed to insert aggregated results results. '
-                                  'Error ignored and execution continues.')
+            # TODO: need to detect potential exception during saving
+            wrap_logger.exception('Failed to insert aggregated results results. Error ignored and execution continues.')
             return
     try:
         locust_wrapper.stats_queue.remove(stats)
