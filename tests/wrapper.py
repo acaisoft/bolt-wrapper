@@ -264,8 +264,7 @@ def start_handler():
     """
     if not locust_wrapper.is_started:
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
-        locust_wrapper.start_execution = wrap_datetime.datetime.now() - wrap_datetime.timedelta(
-            seconds=SENDING_INTERVAL_IN_SECONDS)
+        locust_wrapper.start_execution = wrap_datetime.datetime.now()
         # insert empty record to stats at beginning
         # locust_wrapper.bolt_api_client.insert_aggregated_results({
         #     'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.start_execution.isoformat(),
