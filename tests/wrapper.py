@@ -75,16 +75,12 @@ class LocustWrapper(object):
         stats['number_of_successes'] = len([el for el in elements if el['event_type'] == 'success'])
         stats['number_of_fails'] = len([el for el in elements if el['event_type'] == 'failure'])
         stats['number_of_errors'] = len(set([el['exception'] for el in elements if bool(el['exception'])]))
-        number_of_users = wrap_runners.locust_runner.user_count
-        if number_of_users == 0 and len(self.users):
-            number_of_users = int(sum(self.users) / len(self.users) * 0.60)
-        stats['number_of_users'] = number_of_users
+        stats['number_of_users'] = sum([el['users'] for el in elements]) / float(len(elements))
         average_response_time = sum([el['response_time'] for el in elements]) / float(len(elements))
         stats['average_response_time'] = round(average_response_time, 2)
         average_response_size = sum([el['response_length'] for el in elements]) / float(len(elements))
         stats['average_response_size'] = round(average_response_size, 2)
         self.stats.append(stats)
-        self.users.append(wrap_runners.locust_runner.user_count)
         return stats
 
     def prepare_stats_by_interval_master(self, data):
@@ -216,7 +212,7 @@ def success_handler(request_type, name, response_time, response_length):
     received_data = {
         'execution_id': locust_wrapper.execution, 'endpoint': name, 'exception': '', 'request_type': request_type,
         'response_length': response_length, 'response_time': float(response_time), 'event_type': 'success',
-        'timestamp': int(wrap_time.time()),
+        'timestamp': int(wrap_time.time()), 'users': wrap_runners.locust_runner.user_count
     }
     locust_wrapper.push_event(received_data, event_type='success')
 
@@ -228,7 +224,7 @@ def failure_handler(request_type, name, response_time, exception):
     received_data = {
         'execution_id': locust_wrapper.execution, 'endpoint': name, 'exception': str(exception),
         'request_type': request_type, 'response_length': 0, 'response_time': float(response_time),
-        'event_type': 'failure', 'timestamp': int(wrap_time.time()),
+        'event_type': 'failure', 'timestamp': int(wrap_time.time()), 'users': wrap_runners.locust_runner.user_count
     }
     locust_wrapper.push_event(received_data, event_type='failure')
 
@@ -265,12 +261,6 @@ def start_handler():
     if not locust_wrapper.is_started:
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
         locust_wrapper.start_execution = wrap_datetime.datetime.now()
-        # insert empty record to stats at beginning
-        # locust_wrapper.bolt_api_client.insert_aggregated_results({
-        #     'execution_id': locust_wrapper.execution, 'timestamp': locust_wrapper.start_execution.isoformat(),
-        #     'number_of_successes': 0, 'number_of_fails': 0, 'number_of_errors': 0, 'number_of_users': 0,
-        #     'average_response_time': 0, 'average_response_size': 0
-        # })
         locust_wrapper.bolt_api_client.update_execution(
             execution_id=EXECUTION_ID,
             data={'status': 'RUNNING', 'start_locust': locust_wrapper.start_execution.isoformat()})
