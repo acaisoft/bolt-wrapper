@@ -269,7 +269,7 @@ def start_handler():
             execution_id=EXECUTION_ID,
             data={'status': 'RUNNING', 'start_locust': locust_wrapper.start_execution.isoformat()})
         if not locust_wrapper.dataset:
-            locust_wrapper.dataset.append({wrap_datetime.datetime.now().timestamp(): []})
+            locust_wrapper.dataset.append({locust_wrapper.start_execution.timestamp(): []})
         locust_wrapper.is_started = True
 
 

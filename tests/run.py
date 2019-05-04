@@ -20,7 +20,7 @@ MASTER_HOST = os.getenv('BOLT_MASTER_HOST')
 
 # logger
 logger = setup_custom_logger(__name__)
-logger.info('run v0.1.25')
+logger.info('run v0.1.26')
 logger.info(f'run graphql: {GRAPHQL_URL}')
 logger.info(f'run execution id: {EXECUTION_ID}')
 logger.info(f'run token: {HASURA_TOKEN}')
