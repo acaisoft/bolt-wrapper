@@ -12,6 +12,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
+WRAPPER_VERSION = '0.1.29'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -21,7 +22,7 @@ NFS_MOUNT = os.getenv('BOLT_NFS_MOUNT_1')
 
 # logger
 logger = setup_custom_logger(__name__)
-logger.info('run v0.1.29')
+logger.info(f'run v{WRAPPER_VERSION}')
 logger.info(f'run graphql: {GRAPHQL_URL}')
 logger.info(f'run execution id: {EXECUTION_ID}')
 logger.info(f'run token: {HASURA_TOKEN}')
