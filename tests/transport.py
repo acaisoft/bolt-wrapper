@@ -5,6 +5,14 @@ from graphql.language.printer import print_ast
 
 
 class WrappedTransport(RequestsHTTPTransport):
+    no_keep_alive = False
+
+    def __init__(self, *args, **kwargs):
+        self.no_keep_alive = kwargs.pop('no_keep_alive', False)
+        super().__init__(*args, **kwargs)
+
+        if self.no_keep_alive:
+            self.headers['Connection'] = 'close'
 
     def execute(self, document, variable_values=None, timeout=None):
         query_str = print_ast(document)

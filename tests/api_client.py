@@ -1,8 +1,9 @@
 import csv
 import os
-from datetime import datetime
 
+from datetime import datetime
 from gql import gql, Client
+
 from transport import WrappedTransport
 from logger import setup_custom_logger, log_time_execution
 
@@ -23,10 +24,11 @@ class BoltAPIClient(object):
     GraphQL client for communication with Bolt API (hasura)
     """
 
-    def __init__(self):
+    def __init__(self, no_keep_alive=False):
         self.gql_client = Client(
             retries=5,
             transport=WrappedTransport(
+                no_keep_alive=no_keep_alive,
                 url=GRAPHQL_URL,
                 use_json=True,
                 headers={'Authorization': f'Bearer {HASURA_TOKEN}'},

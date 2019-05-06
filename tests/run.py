@@ -21,7 +21,7 @@ NFS_MOUNT = os.getenv('BOLT_NFS_MOUNT_1')
 
 # logger
 logger = setup_custom_logger(__name__)
-logger.info('run v0.1.28')
+logger.info('run v0.1.29')
 logger.info(f'run graphql: {GRAPHQL_URL}')
 logger.info(f'run execution id: {EXECUTION_ID}')
 logger.info(f'run token: {HASURA_TOKEN}')
@@ -38,7 +38,8 @@ def _exit_with_status(status):
 
 class LocustRunner(object):
     def __init__(self):
-        self.bolt_api_client = BoltAPIClient()
+        no_keep_alive = True if WORKER_TYPE == 'slave' else False
+        self.bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
 
     def set_environments_for_tests(self, data):
         try:
