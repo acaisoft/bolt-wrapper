@@ -19,6 +19,10 @@ HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 logger = setup_custom_logger(__name__)
 
 
+def identifier(parts: list):
+    return str(abs(hash(' '.join(map(lambda x: x.strip(), parts)).lower())))
+
+
 class BoltAPIClient(object):
     """
     GraphQL client for communication with Bolt API (hasura)
@@ -94,9 +98,10 @@ class BoltAPIClient(object):
             with open('test_report_requests.csv') as f:
                 for r in csv.DictReader(f):
                     if not (r["Name"] == "Total" and r["Method"] == "None"):
+                        req_id = identifier([r['Method'], r['Name']])
                         stats['requests'].append({
                             'timestamp': ts,
-                            'identifier': str(abs(hash(r['Method'].strip().lower() + ' ' + r['Name'].strip().lower()))),
+                            'identifier': req_id,
                             'method': r['Method'],
                             'name': r['Name'],
                             'num_requests': r['# requests'],
@@ -118,7 +123,7 @@ class BoltAPIClient(object):
                     if not r["Name"] == "Total":
                         stats['distributions'].append({
                             'timestamp': ts,
-                            'identifier': str(abs(hash(r['Name'].strip().lower()))),
+                            'identifier': identifier([r['Name']]),
                             'method': r['Name'].split()[0],
                             'name': ' '.join(r['Name'].split()[1:]),
                             'num_requests': r['# requests'],
@@ -135,10 +140,23 @@ class BoltAPIClient(object):
         else:
             logger.warn('no distributions file')
 
+        stats['errors'] = []
+        for ed in stats.pop('error_details', {}).values():
+            ed_id = identifier([ed['error_type'], ed['name']])
+            stats['errors'].append({
+                'timestamp': ts,
+                'identifier': ed_id,
+                'method': ed['error_type'],
+                'name': ed['name'],
+                'exception_data': ed['exception_data'],
+                'number_of_occurrences': ed['number_of_occurrences'],
+            })
+
         query = gql('''
             mutation (
                 $requests:[execution_requests_insert_input!]!, 
                 $distributions:[execution_distribution_insert_input!]!,
+                $errors:[execution_errors_insert_input!]!,
                 $execution_id: uuid, 
                 $timestamp: timestamptz, 
                 $number_of_successes: Int, 
@@ -150,6 +168,7 @@ class BoltAPIClient(object):
             ){ 
                 insert_execution_requests(objects: $requests) { affected_rows }
                 insert_execution_distribution(objects: $distributions) { affected_rows }
+                insert_execution_errors(objects: $errors) { affected_rows }
                 insert_result_aggregate(objects: [{ 
                     timestamp: $timestamp, 
                     number_of_successes: $number_of_successes, 

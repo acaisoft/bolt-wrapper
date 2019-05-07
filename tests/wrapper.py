@@ -12,7 +12,7 @@ from gevent import GreenletExit
 from locust import events as wrap_events, runners as wrap_runners
 
 from logger import setup_custom_logger as wrap_setup_custom_logger
-from api_client import BoltAPIClient as WrapBoltAPIClient
+from api_client import BoltAPIClient as WrapBoltAPIClient, identifier as wrap_identifier
 
 # TODO: temporary solution for disabling warnings
 import urllib3
@@ -85,6 +85,7 @@ class LocustWrapper(object):
         stats['average_response_size'] = round(average_response_size, 2)
         self.stats.append(stats)
         self.users.append(wrap_runners.locust_runner.user_count)
+        stats['error_details'] = self.errors
         return stats
 
     def prepare_stats_by_interval_master(self, data):
@@ -142,6 +143,7 @@ class LocustWrapper(object):
             stats['average_response_size'] = 0
         self.stats.append(stats)
         self.users.append(wrap_runners.locust_runner.user_count)
+        stats['error_details'] = self.errors
         return stats
 
     def save_stats(self, send_all=False):
