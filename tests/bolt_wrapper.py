@@ -11,8 +11,8 @@ import locust.stats as wrap_locust_stats
 from gevent import GreenletExit
 from locust import events as wrap_events, runners as wrap_runners
 
-from logger import setup_custom_logger as wrap_setup_custom_logger
-from api_client import BoltAPIClient as WrapBoltAPIClient, identifier as wrap_identifier
+from bolt_logger import setup_custom_logger as wrap_setup_custom_logger
+from bolt_api_client import BoltAPIClient as WrapBoltAPIClient
 
 # TODO: temporary solution for disabling warnings
 import urllib3

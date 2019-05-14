@@ -3,7 +3,7 @@ import json
 from typing import Dict
 from string import Template
 
-from exceptions import StatusCodeException, TimeException, BodyTextEqualException, BodyTextContainsException
+from bolt_exceptions import StatusCodeException, TimeException, BodyTextEqualException, BodyTextContainsException
 
 
 def _failed_with_response_code(_assert, response):

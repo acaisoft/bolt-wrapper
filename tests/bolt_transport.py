@@ -1,5 +1,6 @@
-from gql.transport.requests import RequestsHTTPTransport
 import requests
+
+from gql.transport.requests import RequestsHTTPTransport
 from graphql.execution import ExecutionResult
 from graphql.language.printer import print_ast
 

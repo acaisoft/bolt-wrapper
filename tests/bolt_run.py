@@ -1,11 +1,13 @@
 import json
 import sys
 import os
+import importlib
+import time
 
 from locust.main import main
 
-from logger import setup_custom_logger
-from api_client import BoltAPIClient
+from bolt_logger import setup_custom_logger
+from bolt_api_client import BoltAPIClient
 
 # TODO: temporary solution for disabling warnings
 import urllib3
@@ -31,32 +33,63 @@ logger.info(f'master host: {MASTER_HOST}')
 logger.info(f'nfs mount path: {NFS_MOUNT}')
 logger.info(os.environ)
 
+# consts
+EXIT_STATUS_SUCCESS = 0
+EXIT_STATUS_ERROR = 1
+
 
 def _exit_with_status(status):
     logger.info(f'Exit with status {status}. For execution_id {EXECUTION_ID}')
     sys.exit(status)
 
 
-class LocustRunner(object):
+def _import_and_run(module_name, func_name='main'):
+    try:
+        module = importlib.import_module(module_name)
+        func = getattr(module, func_name)
+    except ModuleNotFoundError as ex:
+        logger.info(f'Error during importing module {module_name}. {ex}')
+        _exit_with_status(EXIT_STATUS_ERROR)
+    except AttributeError as ex:
+        logger.info(f'Error during execution function {func_name}. {ex}')
+        _exit_with_status(EXIT_STATUS_ERROR)
+    except Exception as ex:
+        logger.info(f'Unknown exception during importing module/function for execution. Exception {ex}')
+        _exit_with_status(EXIT_STATUS_ERROR)
+    else:
+        start_time = time.time()
+        try:
+            func()
+        except Exception as ex:
+            logger.info(f'Caught unknown exception during execution function {module_name}.{func_name} | {ex}')
+            _exit_with_status(EXIT_STATUS_ERROR)
+        else:
+            total_time = time.time() - start_time
+            logger.info(f'Successfully executed function {module_name}.{func_name}. Time execution {total_time} sec.')
+            _exit_with_status(EXIT_STATUS_SUCCESS)
+
+
+class Runner(object):
     def __init__(self):
         no_keep_alive = True if WORKER_TYPE == 'slave' else False
         self.bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
 
-    def set_environments_for_tests(self, data):
+    @staticmethod
+    def set_environments_for_tests(data):
         try:
             configuration = data['execution'][0]['configuration']
         except LookupError as ex:
             logger.info(f'Error during extracting test relations from database {ex}')
-            _exit_with_status(1)
+            _exit_with_status(EXIT_STATUS_ERROR)
         else:
             if configuration['test_source']['source_type'] not in ('repository', 'test_creator'):
                 logger.info('Invalid source_type value.')
-                _exit_with_status(1)
+                _exit_with_status(EXIT_STATUS_ERROR)
             for envs in configuration.get('configuration_envvars', []):
                 logger.info(f'run env "{envs["name"]}" == "{envs["value"]}"')
                 os.environ[f'{envs["name"]}'] = envs['value']
             if configuration['test_source']['source_type'] == 'repository':
-                os.environ['BOLT_LOCUSTFILE_NAME'] = 'locustfile'
+                os.environ['BOLT_LOCUSTFILE_NAME'] = 'load_tests'
                 os.environ['BOLT_MIN_WAIT'] = '50'
                 os.environ['BOLT_MAX_WAIT'] = '100'
             elif configuration['test_source']['source_type'] == 'test_creator':
@@ -64,7 +97,7 @@ class LocustRunner(object):
                     test_creator = configuration['test_source']['test_creator']
                 except LookupError as ex:
                     logger.info(f'Error during getting data for Test Creator {ex}')
-                    _exit_with_status(1)
+                    _exit_with_status(EXIT_STATUS_ERROR)
                     return
                 os.environ['BOLT_LOCUSTFILE_NAME'] = 'locustfile_generic'
                 os.environ['BOLT_MIN_WAIT'] = str(test_creator['min_wait'])
@@ -77,15 +110,16 @@ class LocustRunner(object):
                         os.environ['BOLT_TEST_CREATOR_DATA'] = test_creator_data
                     else:
                         logger.info(f'Found unknown type for test_creator_data: {type(test_creator_data)}')
-                        _exit_with_status(1)
+                        _exit_with_status(EXIT_STATUS_ERROR)
                 else:
                     logger.info(f'Cannot get data for test creator. Test creator data is {test_creator_data}')
-                    _exit_with_status(1)
+                    _exit_with_status(EXIT_STATUS_ERROR)
             else:
                 logger.info(f'Cannot find locustile name for execution {EXECUTION_ID}')
-                _exit_with_status(1)
+                _exit_with_status(EXIT_STATUS_ERROR)
 
-    def get_locust_arguments(self, data, extra_arguments):
+    @staticmethod
+    def get_locust_arguments(data, extra_arguments):
         argv = sys.argv or []
         try:
             configurations = data['execution'][0]['configuration']['configuration_parameters']
@@ -93,7 +127,7 @@ class LocustRunner(object):
                 raise LookupError('No arguments for configurations')
         except LookupError as ex:
             logger.info(f'Error during extracting arguments from database {ex}')
-            _exit_with_status(1)
+            _exit_with_status(EXIT_STATUS_ERROR)
         else:
             argv.extend(['-f', 'wrapper.py'])
             # get and put arguments from database
@@ -105,7 +139,36 @@ class LocustRunner(object):
                 argv.extend(extra_arguments)
             return argv
 
-    def master_slave_detector(self):
+    @staticmethod
+    def scenario_detector():
+        """
+        :return: is_pre_start: bool | is_post_stop: bool | is_monitoring: bool | is_load_tests: bool
+        """
+        try:
+            scenario_type = sys.argv[1]
+        except IndexError:
+            logger.info(f'Scenario type does not found. Args {sys.argv}')
+            _exit_with_status(EXIT_STATUS_ERROR)
+        else:
+            logger.info(f'Trying to detect scenario from arguments {sys.argv}')
+            if scenario_type == 'pre_start':
+                logger.info('Detected `pre_start` scenario')
+                return True, False, False, False
+            elif scenario_type == 'post_stop':
+                logger.info('Detected `post_stop` scenario')
+                return False, True, False, False
+            elif scenario_type == 'monitoring':
+                logger.info('Detected `monitoring` scenario')
+                return False, False, True, False
+            elif scenario_type == 'load_tests':
+                logger.info('Detected `load_tests` scenario')
+                return False, False, False, True
+            else:
+                logger.info('Unknown scenario ...')
+                _exit_with_status(EXIT_STATUS_ERROR)
+
+    @staticmethod
+    def master_slave_detector():
         if WORKER_TYPE == 'master':
             logger.info(f'Master detected.')
             return True, False  # is master
@@ -130,21 +193,29 @@ class LocustRunner(object):
 
 
 if __name__ == '__main__':
-    locust_runner = LocustRunner()
-    execution_data = locust_runner.bolt_api_client.get_execution(execution_id=EXECUTION_ID)
-    locust_runner.set_environments_for_tests(execution_data)
-    # master/slave
-    additional_arguments = None
-    is_master, is_slave = locust_runner.master_slave_detector()
-    if is_master:
-        number_of_slaves = execution_data['execution'][0]['configuration']['instances']
-        additional_arguments = locust_runner.prepare_master_arguments(number_of_slaves)
-    elif is_slave:
-        additional_arguments = locust_runner.prepare_slave_arguments()
-    # set arguments to locust
-    logger.info(f'Arguments (sys.argv) before {sys.argv}')
-    sys.argv = locust_runner.get_locust_arguments(execution_data, additional_arguments)
-    logger.info(f'Arguments (sys.argv) after {sys.argv}')
-    # monkey patch for returning 0 (success) status code
-    sys.exit = lambda status: None
-    main()  # test runner
+    runner = Runner()
+    is_pre_start, is_post_stop, is_monitoring, is_load_tests = runner.scenario_detector()
+    if is_pre_start:
+        _import_and_run('bolt_flow.pre_start')
+    elif is_post_stop:
+        _import_and_run('bolt_flow.post_stop')
+    elif is_monitoring:
+        _import_and_run('bolt_monitoring.monitoring')
+    elif is_load_tests:
+        execution_data = runner.bolt_api_client.get_execution(execution_id=EXECUTION_ID)
+        runner.set_environments_for_tests(execution_data)
+        # master/slave
+        additional_arguments = None
+        is_master, is_slave = runner.master_slave_detector()
+        if is_master:
+            number_of_slaves = execution_data['execution'][0]['configuration']['instances']
+            additional_arguments = runner.prepare_master_arguments(number_of_slaves)
+        elif is_slave:
+            additional_arguments = runner.prepare_slave_arguments()
+        # set arguments to locust
+        logger.info(f'Arguments (sys.argv) before {sys.argv}')
+        sys.argv = runner.get_locust_arguments(execution_data, additional_arguments)
+        logger.info(f'Arguments (sys.argv) after {sys.argv}')
+        # monkey patch for returning 0 (success) status code
+        sys.exit = lambda status: None
+        main()  # test runner

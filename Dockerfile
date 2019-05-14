@@ -22,4 +22,4 @@ RUN pip install -r /home/bolt/requirements.txt
 USER bolt
 ENV PATH="/home/bolt/.local/bin:${PATH}"
 
-CMD ["python", "-m", "run"]
+CMD ["python", "-m", "bolt_run"]
