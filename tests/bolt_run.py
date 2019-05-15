@@ -14,7 +14,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.0'
+WRAPPER_VERSION = '0.2.1'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -121,6 +121,12 @@ class Runner(object):
     @staticmethod
     def get_locust_arguments(data, extra_arguments):
         argv = sys.argv or []
+        # delete `load_tests` argument from list of argv's
+        try:
+            argv.remove('load_tests')
+        except ValueError:
+            pass
+        # preparing arguments for locust
         try:
             configurations = data['execution'][0]['configuration']['configuration_parameters']
             if not configurations:
@@ -129,7 +135,7 @@ class Runner(object):
             logger.info(f'Error during extracting arguments from database {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
-            argv.extend(['-f', 'wrapper.py'])
+            argv.extend(['-f', 'bolt_wrapper.py'])
             # get and put arguments from database
             for config in configurations:
                 argv.extend([config['parameter']['param_name'], config['value']])
