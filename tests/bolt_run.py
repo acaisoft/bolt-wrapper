@@ -14,7 +14,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.1'
+WRAPPER_VERSION = '0.2.2'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -89,7 +89,7 @@ class Runner(object):
                 logger.info(f'run env "{envs["name"]}" == "{envs["value"]}"')
                 os.environ[f'{envs["name"]}'] = envs['value']
             if configuration['test_source']['source_type'] == 'repository':
-                os.environ['BOLT_LOCUSTFILE_NAME'] = 'load_tests'
+                os.environ['BOLT_LOCUSTFILE_NAME'] = 'locustfile'  # TODO: load_tests
                 os.environ['BOLT_MIN_WAIT'] = '50'
                 os.environ['BOLT_MAX_WAIT'] = '100'
             elif configuration['test_source']['source_type'] == 'test_creator':
@@ -207,7 +207,7 @@ if __name__ == '__main__':
         _import_and_run('bolt_flow.post_stop')
     elif is_monitoring:
         _import_and_run('bolt_monitoring.monitoring')
-    elif is_load_tests:
+    else:  # TODO: elif is_load_tests:
         execution_data = runner.bolt_api_client.get_execution(execution_id=EXECUTION_ID)
         runner.set_environments_for_tests(execution_data)
         # master/slave
