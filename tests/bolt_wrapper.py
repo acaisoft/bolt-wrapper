@@ -38,6 +38,7 @@ class LocustWrapper(object):
     Wrapper class with help methods for sending and aggregating test results
     """
     dataset = []
+    dataset_timestamps = []
     errors = {}
     stats = []
     stats_queue = []
@@ -104,7 +105,17 @@ class LocustWrapper(object):
         timestamp = list(data.keys())[0]
         elements = data[timestamp]
         if not elements:
-            return None
+            empty_stats = {
+                'execution_id': locust_wrapper.execution,
+                'timestamp': wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat(),
+                'number_of_users': 0,
+                'number_of_fails': 0,
+                'number_of_successes': 0,
+                'number_of_errors': 0,
+                'average_response_time': 0,
+                'average_response_size': 0
+            }
+            return empty_stats
         # prepare dict for stats
         errors = []
         number_of_requests = 0
@@ -166,9 +177,10 @@ class LocustWrapper(object):
                 stats = self.prepare_stats_by_interval_master(first_element)
             else:
                 stats = self.prepare_stats_by_interval_common(first_element)
-            # add stats to queue for sending
-            self.stats_queue.append(stats)
             if stats is not None:
+                # add stats to queue for sending
+                self.stats_queue.append(stats)
+                # send as locust event
                 database_save_event.fire(stats=stats)
 
     def push_event(self, data, event_type):
@@ -204,6 +216,7 @@ class LocustWrapper(object):
             self.dataset[-1][last_timestamp].append(data)
         else:
             self.dataset.append({now_timestamp: [data]})
+            self.dataset_timestamps.append(int(now_timestamp))
         # try to save/send stats for interval
         self.save_stats()
 
@@ -245,6 +258,9 @@ def quitting_handler():
             execution_id=EXECUTION_ID,
             data={'status': 'FINISHED', 'end_locust': locust_wrapper.end_execution.isoformat()}
         )
+        if int(locust_wrapper.end_execution.timestamp()) not in locust_wrapper.dataset_timestamps:
+            locust_wrapper.dataset.append({locust_wrapper.end_execution.timestamp(): []})
+            locust_wrapper.dataset_timestamps.append(int(locust_wrapper.end_execution.timestamp()))
         # save remaining data from 'dataset' list
         locust_wrapper.save_stats(send_all=True)
         sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
@@ -272,6 +288,7 @@ def start_handler():
             data={'status': 'RUNNING', 'start_locust': locust_wrapper.start_execution.isoformat()})
         if not locust_wrapper.dataset:
             locust_wrapper.dataset.append({locust_wrapper.start_execution.timestamp(): []})
+            locust_wrapper.dataset_timestamps.append(int(locust_wrapper.start_execution.timestamp()))
         locust_wrapper.is_started = True
 
 
