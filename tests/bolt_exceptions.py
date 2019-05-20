@@ -12,3 +12,7 @@ class BodyTextEqualException(Exception):
 
 class BodyTextContainsException(Exception):
     pass
+
+
+class MonitoringExit(Exception):
+    pass

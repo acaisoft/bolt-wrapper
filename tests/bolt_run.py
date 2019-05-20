@@ -6,6 +6,7 @@ import time
 
 from locust.main import main
 
+from bolt_exceptions import MonitoringExit
 from bolt_logger import setup_custom_logger
 from bolt_api_client import BoltAPIClient
 
@@ -14,7 +15,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.4'
+WRAPPER_VERSION = '0.2.5'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -47,11 +48,8 @@ def _import_and_run(module_name, func_name='main'):
     try:
         module = importlib.import_module(module_name)
         func = getattr(module, func_name)
-    except ModuleNotFoundError as ex:
-        logger.info(f'Error during importing module {module_name}. {ex}')
-        _exit_with_status(EXIT_STATUS_ERROR)
-    except AttributeError as ex:
-        logger.info(f'Error during execution function {func_name}. {ex}')
+    except (ModuleNotFoundError, AttributeError) as ex:
+        logger.info(f'Error during importing module/function. {ex}')
         _exit_with_status(EXIT_STATUS_ERROR)
     except Exception as ex:
         logger.info(f'Unknown exception during importing module/function for execution. Exception {ex}')
@@ -60,8 +58,11 @@ def _import_and_run(module_name, func_name='main'):
         start_time = time.time()
         try:
             func()
+        except MonitoringExit as ex:
+            logger.info(f'Caught exception during execution monitoring | {ex}')
+            _exit_with_status(EXIT_STATUS_ERROR)
         except Exception as ex:
-            logger.info(f'Caught unknown exception during execution function {module_name}.{func_name} | {ex}')
+            logger.info(f'Caught unknown exception during execution | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             total_time = time.time() - start_time
@@ -89,7 +90,7 @@ class Runner(object):
                 logger.info(f'run env "{envs["name"]}" == "{envs["value"]}"')
                 os.environ[f'{envs["name"]}'] = envs['value']
             if configuration['test_source']['source_type'] == 'repository':
-                os.environ['BOLT_LOCUSTFILE_NAME'] = 'locustfile'  # TODO: load_tests
+                os.environ['BOLT_LOCUSTFILE_NAME'] = 'load_tests'
                 os.environ['BOLT_MIN_WAIT'] = '50'
                 os.environ['BOLT_MAX_WAIT'] = '100'
             elif configuration['test_source']['source_type'] == 'test_creator':
@@ -135,7 +136,7 @@ class Runner(object):
             logger.info(f'Error during extracting arguments from database {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
-            argv.extend(['-f', 'bolt_wrapper.py'])
+            argv.extend(['-f', 'bolt_locust_wrapper.py'])
             # get and put arguments from database
             for config in configurations:
                 argv.extend([config['parameter']['param_name'], config['value']])
@@ -154,7 +155,6 @@ class Runner(object):
             scenario_type = sys.argv[1]
         except IndexError:
             logger.info(f'Scenario type does not found. Args {sys.argv}')
-            return False, False, False, True  # TODO: delete line
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             logger.info(f'Trying to detect scenario from arguments {sys.argv}')
@@ -207,8 +207,8 @@ if __name__ == '__main__':
     elif is_post_stop:
         _import_and_run('bolt_flow.post_stop')
     elif is_monitoring:
-        _import_and_run('bolt_monitoring.monitoring')
-    else:  # TODO: elif is_load_tests:
+        _import_and_run('bolt_monitoring_wrapper')
+    elif is_load_tests:
         execution_data = runner.bolt_api_client.get_execution(execution_id=EXECUTION_ID)
         runner.set_environments_for_tests(execution_data)
         # master/slave
