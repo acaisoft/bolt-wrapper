@@ -72,6 +72,6 @@ def main(**kwargs):
     logger.info('Start executing monitoring/during_test')
     has_load_tests = kwargs.get('has_load_tests')
     if not has_load_tests:
-        bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'MONITORING IN PROGRESS'})
+        bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'MONITORING'})
     stop_during_test_func = run_during_test()
     run_monitoring(has_load_tests, stop_during_test_func)
