@@ -15,7 +15,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.7'
+WRAPPER_VERSION = '0.2.8'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -76,7 +76,19 @@ class Runner(object):
         self.bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
 
     @staticmethod
-    def set_environments_for_tests(data):
+    def set_environments(data):
+        try:
+            configuration = data['execution'][0]['configuration']
+        except LookupError as ex:
+            logger.info(f'Error during extracting test relations from database {ex}')
+            _exit_with_status(EXIT_STATUS_ERROR)
+        else:
+            for envs in configuration.get('configuration_envvars', []):
+                logger.info(f'run env "{envs["name"]}" == "{envs["value"]}"')
+                os.environ[f'{envs["name"]}'] = envs['value']
+
+    @staticmethod
+    def set_variables_for_load_tests(data):
         try:
             configuration = data['execution'][0]['configuration']
         except LookupError as ex:
@@ -86,9 +98,6 @@ class Runner(object):
             if configuration['test_source']['source_type'] not in ('repository', 'test_creator'):
                 logger.info('Invalid source_type value.')
                 _exit_with_status(EXIT_STATUS_ERROR)
-            for envs in configuration.get('configuration_envvars', []):
-                logger.info(f'run env "{envs["name"]}" == "{envs["value"]}"')
-                os.environ[f'{envs["name"]}'] = envs['value']
             if configuration['test_source']['source_type'] == 'repository':
                 os.environ['BOLT_LOCUSTFILE_NAME'] = 'load_tests'
                 os.environ['BOLT_MIN_WAIT'] = '50'
@@ -202,7 +211,7 @@ class Runner(object):
 if __name__ == '__main__':
     runner = Runner()
     execution_data = runner.bolt_api_client.get_execution(execution_id=EXECUTION_ID)
-    runner.set_environments_for_tests(execution_data)
+    runner.set_environments(execution_data)
     is_pre_start, is_post_stop, is_monitoring, is_load_tests = runner.scenario_detector()
     if is_pre_start:
         _import_and_run('bolt_flow.pre_start')
@@ -211,6 +220,7 @@ if __name__ == '__main__':
     elif is_monitoring:
         _import_and_run('bolt_monitoring_wrapper')
     elif is_load_tests:
+        runner.set_variables_for_load_tests(execution_data)
         # master/slave
         additional_arguments = None
         is_master, is_slave = runner.master_slave_detector()
