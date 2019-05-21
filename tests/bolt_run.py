@@ -15,7 +15,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.8'
+WRAPPER_VERSION = '0.2.9'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -148,6 +148,9 @@ class Runner(object):
             argv.extend(['-f', 'bolt_locust_wrapper.py'])
             # get and put arguments from database
             for config in configurations:
+                # TODO: need refactoring
+                if config['parameter']['param_name'] == '-md':
+                    continue
                 argv.extend([config['parameter']['param_name'], config['value']])
             argv.extend(['--no-web'])
             argv.extend(['--csv=test_report'])

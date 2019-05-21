@@ -46,6 +46,10 @@ class BoltAPIClient(object):
                 execution(where: {id: {_eq: $execution_id}}) {
                     configuration {
                         instances
+                        has_pre_test
+                        has_post_test
+                        has_load_tests
+                        has_monitoring
                         configuration_parameters {
                             value
                             parameter {
