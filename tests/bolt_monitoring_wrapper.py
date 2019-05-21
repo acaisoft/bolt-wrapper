@@ -9,14 +9,13 @@ from bolt_exceptions import MonitoringExit
 from bolt_logger import setup_custom_logger
 
 # envs
-MONITORING_DURATION = os.getenv('MONITORING_DURATION')
+BOLT_DEADLINE = os.getenv('BOLT_DEADLINE')
 MONITORING_SENDING_INTERVAL = os.getenv('MONITORING_SENDING_INTERVAL')
 DURING_TEST_INTERVAL = os.getenv('DURING_TEST_INTERVAL')
 
 monitoring_module = importlib.import_module('bolt_monitoring.monitoring')
 monitoring_func = getattr(monitoring_module, 'monitoring')
-monitoring_start = int(time.time())
-monitoring_end = monitoring_start + int(MONITORING_DURATION)
+monitoring_deadline = datetime.datetime.fromisoformat(BOLT_DEADLINE).timestamp()
 
 logger = setup_custom_logger(__name__)
 bolt_api_client = BoltAPIClient()
@@ -38,7 +37,7 @@ def run_monitoring(stop_during_test_func=None):
         raise MonitoringExit(e)
     else:
         time.sleep(int(MONITORING_SENDING_INTERVAL))
-        if time.time() > monitoring_end:
+        if time.time() > monitoring_deadline:
             # try to stop during test
             if stop_during_test_func is not None:
                 stop_during_test_func()
