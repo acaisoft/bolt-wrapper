@@ -10,6 +10,7 @@ from bolt_logger import setup_custom_logger
 
 # envs
 BOLT_DEADLINE = os.getenv('BOLT_DEADLINE')
+EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
 MONITORING_SENDING_INTERVAL = os.getenv('MONITORING_SENDING_INTERVAL')
 DURING_TEST_INTERVAL = os.getenv('DURING_TEST_INTERVAL')
 
@@ -21,7 +22,7 @@ logger = setup_custom_logger(__name__)
 bolt_api_client = BoltAPIClient()
 
 
-def run_monitoring(stop_during_test_func=None):
+def run_monitoring(has_load_tests, stop_during_test_func=None):
     """
     Execute monitoring function every X sec
     """
@@ -41,7 +42,10 @@ def run_monitoring(stop_during_test_func=None):
             # try to stop during test
             if stop_during_test_func is not None:
                 stop_during_test_func()
-            return
+            # set status FINISHED for execution when monitoring working without load_tests
+            if not has_load_tests:
+                bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
+            return  # exit from function (as success)
         else:
             run_monitoring(stop_during_test_func)
 
@@ -64,7 +68,8 @@ def run_during_test():
         return None
 
 
-def main():
+def main(**kwargs):
     logger.info('Start executing monitoring/during_test')
+    has_load_tests = kwargs.get('has_load_tests')
     stop_during_test_func = run_during_test()
-    run_monitoring(stop_during_test_func)
+    run_monitoring(has_load_tests, stop_during_test_func)

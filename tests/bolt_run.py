@@ -15,7 +15,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.9'
+WRAPPER_VERSION = '0.2.11'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -44,12 +44,12 @@ def _exit_with_status(status):
     sys.exit(status)
 
 
-def _import_and_run(module_name, func_name='main'):
+def _import_and_run(module_name, func_name='main', **kwargs):
     try:
         module = importlib.import_module(module_name)
         func = getattr(module, func_name)
     except (ModuleNotFoundError, AttributeError) as ex:
-        logger.info(f'Error during importing module/function. {ex}')
+        logger.exception(f'Error during importing module/function. {ex}')
         _exit_with_status(EXIT_STATUS_ERROR)
     except Exception as ex:
         logger.exception(f'Unknown exception during importing module/function for execution. Exception {ex}')
@@ -57,12 +57,12 @@ def _import_and_run(module_name, func_name='main'):
     else:
         start_time = time.time()
         try:
-            func()
+            func(**kwargs)
         except MonitoringExit as ex:
-            logger.info(f'Caught exception during execution monitoring | {ex}')
+            logger.exception(f'Caught exception during execution monitoring | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         except Exception as ex:
-            logger.info(f'Caught unknown exception during execution | {ex}')
+            logger.exception(f'Caught unknown exception during execution | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             total_time = time.time() - start_time
@@ -127,6 +127,16 @@ class Runner(object):
             else:
                 logger.info(f'Cannot find locustile name for execution {EXECUTION_ID}')
                 _exit_with_status(EXIT_STATUS_ERROR)
+
+    @staticmethod
+    def has_load_tests(data):
+        try:
+            configuration = data['execution'][0]['configuration']
+        except LookupError as ex:
+            logger.info(f'Error during extracting test relations from database {ex}')
+            _exit_with_status(EXIT_STATUS_ERROR)
+        else:
+            return configuration['has_load_tests']
 
     @staticmethod
     def get_locust_arguments(data, extra_arguments):
@@ -221,7 +231,8 @@ if __name__ == '__main__':
     elif is_post_stop:
         _import_and_run('bolt_flow.post_stop')
     elif is_monitoring:
-        _import_and_run('bolt_monitoring_wrapper')
+        has_load_tests = runner.has_load_tests(execution_data)
+        _import_and_run('bolt_monitoring_wrapper', has_load_tests=has_load_tests)
     elif is_load_tests:
         runner.set_variables_for_load_tests(execution_data)
         # master/slave
