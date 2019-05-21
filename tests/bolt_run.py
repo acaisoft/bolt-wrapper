@@ -15,7 +15,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.5'
+WRAPPER_VERSION = '0.2.7'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -52,7 +52,7 @@ def _import_and_run(module_name, func_name='main'):
         logger.info(f'Error during importing module/function. {ex}')
         _exit_with_status(EXIT_STATUS_ERROR)
     except Exception as ex:
-        logger.info(f'Unknown exception during importing module/function for execution. Exception {ex}')
+        logger.exception(f'Unknown exception during importing module/function for execution. Exception {ex}')
         _exit_with_status(EXIT_STATUS_ERROR)
     else:
         start_time = time.time()
@@ -201,6 +201,8 @@ class Runner(object):
 
 if __name__ == '__main__':
     runner = Runner()
+    execution_data = runner.bolt_api_client.get_execution(execution_id=EXECUTION_ID)
+    runner.set_environments_for_tests(execution_data)
     is_pre_start, is_post_stop, is_monitoring, is_load_tests = runner.scenario_detector()
     if is_pre_start:
         _import_and_run('bolt_flow.pre_start')
@@ -209,8 +211,6 @@ if __name__ == '__main__':
     elif is_monitoring:
         _import_and_run('bolt_monitoring_wrapper')
     elif is_load_tests:
-        execution_data = runner.bolt_api_client.get_execution(execution_id=EXECUTION_ID)
-        runner.set_environments_for_tests(execution_data)
         # master/slave
         additional_arguments = None
         is_master, is_slave = runner.master_slave_detector()
