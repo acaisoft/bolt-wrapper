@@ -9,20 +9,17 @@ from bolt_exceptions import MonitoringExit
 from bolt_logger import setup_custom_logger
 
 # envs
-BOLT_DEADLINE = os.getenv('BOLT_DEADLINE')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
-MONITORING_SENDING_INTERVAL = os.getenv('MONITORING_SENDING_INTERVAL')
 DURING_TEST_INTERVAL = os.getenv('DURING_TEST_INTERVAL')
 
 monitoring_module = importlib.import_module('bolt_monitoring.monitoring')
 monitoring_func = getattr(monitoring_module, 'monitoring')
-monitoring_deadline = datetime.datetime.fromisoformat(BOLT_DEADLINE).timestamp()
 
 logger = setup_custom_logger(__name__)
 bolt_api_client = BoltAPIClient()
 
 
-def run_monitoring(has_load_tests, stop_during_test_func=None):
+def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_during_test_func=None):
     """
     Execute monitoring function every X sec
     """
@@ -37,8 +34,8 @@ def run_monitoring(has_load_tests, stop_during_test_func=None):
             stop_during_test_func()
         raise MonitoringExit(e)
     else:
-        time.sleep(int(MONITORING_SENDING_INTERVAL))
-        if time.time() > monitoring_deadline:
+        time.sleep(interval)
+        if time.time() > deadline:
             # try to stop during test
             if stop_during_test_func is not None:
                 stop_during_test_func()
@@ -47,7 +44,7 @@ def run_monitoring(has_load_tests, stop_during_test_func=None):
                 bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
             return  # exit from function (as success)
         else:
-            run_monitoring(stop_during_test_func)
+            run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
 
 
 def run_during_test():
@@ -55,7 +52,8 @@ def run_during_test():
     Execute during test function every X sec using threading (background)
     """
     during_test_func = getattr(monitoring_module, 'during_test', None)
-    if during_test_func is not None:
+    if during_test_func is not None and DURING_TEST_INTERVAL is not None:
+        logger.info(f'Correctly detected during test with interval {DURING_TEST_INTERVAL}')
         stop_func = threading.Event()
 
         def loop():
@@ -70,8 +68,17 @@ def run_during_test():
 
 def main(**kwargs):
     logger.info('Start executing monitoring/during_test')
+    # extract kwargs
     has_load_tests = kwargs.get('has_load_tests')
-    if not has_load_tests:
-        bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'MONITORING'})
-    stop_during_test_func = run_during_test()
-    run_monitoring(has_load_tests, stop_during_test_func)
+    monitoring_arguments = kwargs.get('monitoring_arguments', {})
+    # run monitor if arguments was sending correctly
+    if 'monitoring_interval' in monitoring_arguments and 'monitoring_duration' in monitoring_arguments:
+        deadline = int(time.time()) + int(monitoring_arguments['monitoring_duration'])
+        interval = int(monitoring_arguments['monitoring_interval'])
+        stop_during_test_func = run_during_test()
+        logger.info(f'Correctly detected arguments for monitoring | {monitoring_arguments}')
+        if not has_load_tests:
+            bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'MONITORING'})
+        run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
+    else:
+        logger.info(f'Error during extracting arguments for monitoring | {monitoring_arguments}')

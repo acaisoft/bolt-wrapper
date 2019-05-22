@@ -15,7 +15,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.13'
+WRAPPER_VERSION = '0.2.14'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -76,7 +76,7 @@ class Runner(object):
         self.bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
 
     @staticmethod
-    def set_environments(data):
+    def set_configuration_environments(data):
         try:
             configuration = data['execution'][0]['configuration']
         except LookupError as ex:
@@ -88,7 +88,7 @@ class Runner(object):
                 os.environ[f'{envs["name"]}'] = envs['value']
 
     @staticmethod
-    def set_variables_for_load_tests(data):
+    def set_environments_for_load_tests(data):
         try:
             configuration = data['execution'][0]['configuration']
         except LookupError as ex:
@@ -139,6 +139,22 @@ class Runner(object):
             return configuration['has_load_tests']
 
     @staticmethod
+    def get_monitoring_arguments(data):
+        try:
+            configurations = data['execution'][0]['configuration']['configuration_parameters']
+            if not configurations:
+                raise LookupError('No arguments for configurations')
+        except LookupError as ex:
+            logger.info(f'Error during extracting arguments from database {ex}')
+            _exit_with_status(EXIT_STATUS_ERROR)
+        else:
+            arguments = {}
+            for config in configurations:
+                if config['parameter_slug'] in ('monitoring_duration', 'monitoring_interval'):
+                    arguments[config['parameter_slug']] = config['value']
+            return arguments
+
+    @staticmethod
     def get_locust_arguments(data, extra_arguments):
         argv = sys.argv or []
         # delete `load_tests` argument from list of argv's
@@ -159,7 +175,7 @@ class Runner(object):
             # get and put arguments from database
             for config in configurations:
                 # TODO: need refactoring
-                if config['parameter']['param_name'] == '-md':
+                if config['parameter']['param_name'] in ('-md', '-mi'):
                     continue
                 argv.extend([config['parameter']['param_name'], config['value']])
             argv.extend(['--no-web'])
@@ -224,17 +240,19 @@ class Runner(object):
 if __name__ == '__main__':
     runner = Runner()
     execution_data = runner.bolt_api_client.get_execution(execution_id=EXECUTION_ID)
-    runner.set_environments(execution_data)
+    runner.set_configuration_environments(execution_data)
     is_pre_start, is_post_stop, is_monitoring, is_load_tests = runner.scenario_detector()
     if is_pre_start:
         _import_and_run('bolt_flow.pre_start')
     elif is_post_stop:
         _import_and_run('bolt_flow.post_stop')
     elif is_monitoring:
+        monitoring_arguments = runner.get_monitoring_arguments(execution_data)
         has_load_tests = runner.has_load_tests(execution_data)
-        _import_and_run('bolt_monitoring_wrapper', has_load_tests=has_load_tests)
+        _import_and_run(
+            'bolt_monitoring_wrapper', has_load_tests=has_load_tests, monitoring_arguments=monitoring_arguments)
     elif is_load_tests:
-        runner.set_variables_for_load_tests(execution_data)
+        runner.set_environments_for_load_tests(execution_data)
         # master/slave
         additional_arguments = None
         is_master, is_slave = runner.master_slave_detector()

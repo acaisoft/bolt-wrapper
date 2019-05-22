@@ -52,6 +52,7 @@ class BoltAPIClient(object):
                         has_monitoring
                         configuration_parameters {
                             value
+                            parameter_slug
                             parameter {
                                 name
                                 param_name
