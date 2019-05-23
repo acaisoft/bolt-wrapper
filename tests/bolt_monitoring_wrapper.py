@@ -18,16 +18,22 @@ monitoring_func = getattr(monitoring_module, 'monitoring')
 logger = setup_custom_logger(__name__)
 bolt_api_client = BoltAPIClient()
 
+# True - is alive | False - is not alive | None - was not running
+DURING_TEST_IS_ALIVE = None
+
 
 def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_during_test_func=None):
     """
     Execute monitoring function every X sec
     """
     try:
-        json_data = monitoring_func()
-        if json_data is not None:
-            bolt_api_client.insert_execution_metrics_data({
-                'timestamp': datetime.datetime.now().isoformat(), 'data': json_data})
+        if DURING_TEST_IS_ALIVE is False:
+            raise Exception(f'During test is not alive. Exit from monitoring.')
+        else:
+            json_data = monitoring_func()
+            if json_data is not None:
+                bolt_api_client.insert_execution_metrics_data({
+                    'timestamp': datetime.datetime.now().isoformat(), 'data': json_data})
     except Exception as e:
         # try to stop during test
         if stop_during_test_func is not None:
@@ -53,12 +59,19 @@ def run_during_test():
     """
     during_test_func = getattr(monitoring_module, 'during_test', None)
     if during_test_func is not None and DURING_TEST_INTERVAL is not None:
+        global DURING_TEST_IS_ALIVE
+        DURING_TEST_IS_ALIVE = True
         logger.info(f'Correctly detected during test with interval {DURING_TEST_INTERVAL}')
         stop_func = threading.Event()
 
         def loop():
             while not stop_func.wait(int(DURING_TEST_INTERVAL)):
-                during_test_func()
+                try:
+                    during_test_func()
+                except Exception as ex:
+                    global DURING_TEST_IS_ALIVE
+                    DURING_TEST_IS_ALIVE = False
+                    logger.exception(f'Caught unknown exception from during test | {ex}')
 
         threading.Thread(target=loop).start()
         return stop_func.set
