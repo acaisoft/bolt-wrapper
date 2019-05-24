@@ -64,16 +64,26 @@ def run_during_test():
         logger.info(f'Correctly detected during test with interval {DURING_TEST_INTERVAL}')
         stop_func = threading.Event()
 
-        def loop():
-            while not stop_func.wait(int(DURING_TEST_INTERVAL)):
-                try:
-                    during_test_func()
-                except Exception as ex:
-                    global DURING_TEST_IS_ALIVE
-                    DURING_TEST_IS_ALIVE = False
-                    logger.exception(f'Caught unknown exception from during test | {ex}')
+        def call():
+            """
+            Call `during_test_func` and catch exceptions if function will crash
+            """
+            try:
+                during_test_func()
+            except Exception as ex:
+                global DURING_TEST_IS_ALIVE
+                DURING_TEST_IS_ALIVE = False
+                logger.exception(f'Caught unknown exception from during test | {ex}')
 
-        threading.Thread(target=loop).start()
+        def loop():
+            """
+            Need for executing `call` function every X times in threads (target function in Thread)
+            """
+            call()
+            while not stop_func.wait(int(DURING_TEST_INTERVAL)):
+                call()
+
+        threading.Thread(target=loop).start()  # open thread for `during test` and start
         return stop_func.set
     else:
         return None
