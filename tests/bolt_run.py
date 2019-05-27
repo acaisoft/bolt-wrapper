@@ -16,7 +16,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.15'
+WRAPPER_VERSION = '0.2.16'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -55,35 +55,35 @@ def _stage_log(msg, level='info'):
 
 
 def _import_and_run(scenario_type, module_name, func_name='main', **kwargs):
-    _stage_log(f'Starting {scenario_type}')
+    _stage_log(f'Starting {scenario_type.replace("_", " ")}')
     try:
         module = importlib.import_module(module_name)
         func = getattr(module, func_name)
     except (ModuleNotFoundError, AttributeError) as ex:
-        logger.exception(f'Import error | {ex}', level='error')
-        _stage_log(f'Could not import func/module | {ex}', level='error')
+        logger.exception(f'Import error | {ex}')
+        _stage_log(f'Import error', level='error')
         _exit_with_status(EXIT_STATUS_ERROR)
     except Exception as ex:
         logger.exception(f'Unknown exception during importing module/function for execution | {ex}')
-        _stage_log(f'Could not import func/module | {ex}', level='error')
+        _stage_log(f'Unknown error', level='error')
         _exit_with_status(EXIT_STATUS_ERROR)
     else:
-        _stage_log(f'Running ...')
+        _stage_log(f'Running')
         start_time = time.time()
         try:
             func(**kwargs)
         except MonitoringExit as ex:
             logger.exception(f'Caught exception during execution monitoring | {ex}')
-            _stage_log(f'Error during monitor execution | {ex}', level='error')
+            _stage_log(f'Error during execution', level='error')
             _exit_with_status(EXIT_STATUS_ERROR)
         except Exception as ex:
             logger.exception(f'Caught unknown exception during execution | {ex}')
-            _stage_log(f'Error during execution | {ex}', level='error')
+            _stage_log(f'Unknown error during execution', level='error')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             total_time = int(time.time() - start_time)
             logger.info(f'Successfully executed function {module_name}.{func_name}. Time execution {total_time} sec.')
-            _stage_log(f'{scenario_type.title()} successfully finished')
+            _stage_log(f'{scenario_type.replace("_", " ").capitalize()} finished')
             _exit_with_status(EXIT_STATUS_SUCCESS)
 
 
@@ -279,9 +279,9 @@ def main():
         logger.info(f'Arguments (sys.argv) after {sys.argv}')
         # monkey patch for returning 0 (success) status code
         sys.exit = lambda status: None
-        _stage_log('Running ...')
+        _stage_log('Running')
         locust_main()  # locust test runner
-        _stage_log('Load test successfully finished')
+        _stage_log('Load test finished')
 
 
 if __name__ == '__main__':
