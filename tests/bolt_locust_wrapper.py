@@ -69,7 +69,17 @@ class LocustWrapper(object):
         timestamp = list(data.keys())[0]
         elements = data[timestamp]
         if not elements:
-            return None
+            empty_stats = {
+                'execution_id': locust_wrapper.execution,
+                'timestamp': wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat(),
+                'number_of_users': 0,
+                'number_of_fails': 0,
+                'number_of_successes': 0,
+                'number_of_errors': 0,
+                'average_response_time': 0,
+                'average_response_size': 0
+            }
+            return empty_stats
         # prepare dict for stats
         stats['execution_id'] = self.execution
         stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
@@ -267,6 +277,7 @@ def quitting_handler():
         wrap_logger.info(f'Number of success: {sum_success}. Number of errors {len(locust_wrapper.errors)}')
         wrap_logger.info(f'Count stats {len(locust_wrapper.stats)}')
         wrap_logger.info(f'Locust start: {locust_wrapper.start_execution}. Locust end: {locust_wrapper.end_execution}')
+        wrap_logger.info(f'Dataset timestamps {locust_wrapper.dataset_timestamps}')
         # wait for updating data
         wrap_time.sleep(SENDING_INTERVAL_IN_SECONDS)
         # prepare and send error results to database
