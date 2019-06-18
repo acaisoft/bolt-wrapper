@@ -44,6 +44,7 @@ class BoltAPIClient(object):
         query = gql('''
             query ($execution_id: uuid) {
                 execution(where: {id: {_eq: $execution_id}}) {
+                    status
                     configuration {
                         instances
                         has_pre_test

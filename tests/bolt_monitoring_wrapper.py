@@ -5,7 +5,7 @@ import datetime
 import time
 
 from bolt_api_client import BoltAPIClient
-from bolt_exceptions import MonitoringExit
+from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
 from bolt_logger import setup_custom_logger
 
 # envs
@@ -20,6 +20,8 @@ bolt_api_client = BoltAPIClient()
 
 # True - is alive | False - is not alive | None - was not running
 DURING_TEST_IS_ALIVE = None
+DEADLINE_FOR_WAITING_LOAD_TESTS = 60 * 10  # 10 min
+INTERVAL_FOR_WAITING_LOAD_TESTS = 5
 
 
 def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_during_test_func=None):
@@ -38,7 +40,7 @@ def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_duri
         # try to stop during test
         if stop_during_test_func is not None:
             stop_during_test_func()
-        raise MonitoringExit(e)
+        raise MonitoringError(e)
     else:
         time.sleep(interval)
         if time.time() > deadline:
@@ -89,6 +91,29 @@ def run_during_test():
         return None
 
 
+def waiting_for_load_tests():
+    """
+    Wait until load test is started
+    """
+    logger.info('Start execution function `waiting_for_load_tests`')
+    deadline_for_waiting = time.time() + DEADLINE_FOR_WAITING_LOAD_TESTS
+    while deadline_for_waiting > time.time():
+        execution_data = bolt_api_client.get_execution(EXECUTION_ID)
+        try:
+            status = execution_data['execution'][0]['status']
+        except LookupError:
+            logger.exception('Error during fetching status for execution')
+            time.sleep(INTERVAL_FOR_WAITING_LOAD_TESTS)
+        else:
+            logger.info(f'Retrieve execution status {status} from execution {EXECUTION_ID}')
+            if status == 'RUNNING':
+                return True  # positive exit from function (load_test started)
+            else:
+                time.sleep(INTERVAL_FOR_WAITING_LOAD_TESTS)
+                continue  # continue iteration for waiting load tests
+    return False  # negative exit from function (load_test not started)
+
+
 def main(**kwargs):
     logger.info('Start executing monitoring/during_test')
     # extract kwargs
@@ -96,12 +121,21 @@ def main(**kwargs):
     monitoring_arguments = kwargs.get('monitoring_arguments', {})
     # run monitor if arguments was sending correctly
     if 'monitoring_interval' in monitoring_arguments and 'monitoring_duration' in monitoring_arguments:
-        deadline = int(time.time()) + int(monitoring_arguments['monitoring_duration'])
         interval = int(monitoring_arguments['monitoring_interval'])
-        stop_during_test_func = run_during_test()
         logger.info(f'Correctly detected arguments for monitoring | {monitoring_arguments}')
         if not has_load_tests:
             bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'MONITORING'})
-        run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
+            deadline = int(time.time()) + int(monitoring_arguments['monitoring_duration'])
+            stop_during_test_func = run_during_test()
+            run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
+        else:
+            load_test_started = waiting_for_load_tests()
+            if load_test_started:
+                deadline = int(time.time()) + int(monitoring_arguments['monitoring_duration'])
+                stop_during_test_func = run_during_test()
+                run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
+            else:
+                logger.info('Load test didnt start. The monitoring did not run')
+                raise MonitoringWaitingExpired(f'Load tests didnt start {kwargs}')
     else:
         logger.info(f'Error during extracting arguments for monitoring | {monitoring_arguments}')
