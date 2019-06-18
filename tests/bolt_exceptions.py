@@ -14,5 +14,9 @@ class BodyTextContainsException(Exception):
     pass
 
 
-class MonitoringExit(Exception):
+class MonitoringError(Exception):
+    pass
+
+
+class MonitoringWaitingExpired(Exception):
     pass

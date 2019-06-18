@@ -7,7 +7,7 @@ import time
 
 from locust.main import main as locust_main
 
-from bolt_exceptions import MonitoringExit
+from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
 from bolt_logger import setup_custom_logger
 from bolt_api_client import BoltAPIClient
 
@@ -16,7 +16,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.32'
+WRAPPER_VERSION = '0.2.33'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -72,9 +72,13 @@ def _import_and_run(scenario_type, module_name, func_name='main', **kwargs):
         start_time = time.time()
         try:
             func(**kwargs)
-        except MonitoringExit as ex:
+        except MonitoringError as ex:
             logger.exception(f'Caught exception during execution monitoring | {ex}')
             _stage_log(f'Error during execution', level='error')
+            _exit_with_status(EXIT_STATUS_ERROR)
+        except MonitoringWaitingExpired as ex:
+            logger.exception(f'Caught monitoring exception during waiting load tests | {ex}')
+            _stage_log(f'Monitoring error. Load tests didnt start', level='error')
             _exit_with_status(EXIT_STATUS_ERROR)
         except Exception as ex:
             logger.exception(f'Caught unknown exception during execution | {ex}')
