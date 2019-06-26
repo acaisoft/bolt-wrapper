@@ -16,7 +16,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.33'
+WRAPPER_VERSION = '0.2.34'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -282,7 +282,7 @@ def main():
         sys.argv = runner.get_load_tests_arguments(execution_data, additional_arguments)
         logger.info(f'Arguments (sys.argv) after {sys.argv}')
         # monkey patch for returning 0 (success) status code
-        sys.exit = lambda status: None
+        # sys.exit = lambda status: None
         _stage_log('Running')
         locust_main()  # locust test runner
         _stage_log('Load test finished')
