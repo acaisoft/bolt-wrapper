@@ -16,7 +16,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.34'
+WRAPPER_VERSION = '0.2.35'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -174,7 +174,7 @@ class Runner(object):
             return arguments
 
     @staticmethod
-    def get_load_tests_arguments(data, extra_arguments):
+    def get_load_tests_arguments(data, extra_arguments, is_master):
         argv = sys.argv or []
         # delete `load_tests` argument from list of argv's
         try:
@@ -192,13 +192,14 @@ class Runner(object):
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             argv.extend(['-f', 'bolt_locust_wrapper.py'])
-            # get and put locust arguments from database
-            for p in parameters:
-                parameter_slug = p['parameter_slug']
-                if parameter_slug.startswith('load_tests_'):
-                    argv.extend([p['parameter']['param_name'], p['value']])
-            argv.extend(['--no-web'])
-            argv.extend(['--csv=test_report'])
+            # get and put locust arguments from database for master only
+            if is_master:
+                for p in parameters:
+                    parameter_slug = p['parameter_slug']
+                    if parameter_slug.startswith('load_tests_'):
+                        argv.extend([p['parameter']['param_name'], p['value']])
+                argv.extend(['--no-web'])
+                argv.extend(['--csv=test_report'])
             if extra_arguments is not None:
                 argv.extend(extra_arguments)
             return argv
@@ -279,7 +280,7 @@ def main():
             additional_arguments = runner.prepare_slave_arguments()
         # set arguments to locust
         logger.info(f'Arguments (sys.argv) before {sys.argv}')
-        sys.argv = runner.get_load_tests_arguments(execution_data, additional_arguments)
+        sys.argv = runner.get_load_tests_arguments(execution_data, additional_arguments, is_master)
         logger.info(f'Arguments (sys.argv) after {sys.argv}')
         # monkey patch for returning 0 (success) status code
         # sys.exit = lambda status: None
