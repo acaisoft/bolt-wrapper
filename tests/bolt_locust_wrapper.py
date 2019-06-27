@@ -285,7 +285,7 @@ def quitting_handler():
         wrap_logger.info(f'Locust start: {locust_wrapper.start_execution}. Locust end: {locust_wrapper.end_execution}')
         wrap_logger.info(f'Dataset timestamps {locust_wrapper.dataset_timestamps}')
         # wait for updating data
-        wrap_time.sleep(SENDING_INTERVAL_IN_SECONDS)
+        wrap_time.sleep(SENDING_INTERVAL_IN_SECONDS * 5)
         # prepare and send error results to database
         for error_item in list(locust_wrapper.errors.items()):
             _, value = error_item
