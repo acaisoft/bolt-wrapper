@@ -272,7 +272,7 @@ def quitting_handler():
         execution_update_data = {'end_locust': locust_wrapper.end_execution.isoformat()}
         if execution_data['execution'][0]['status'] not in (WrapStatus.ERROR.value, WrapStatus.FAILED.value,
                                                             WrapStatus.TERMINATED.value, WrapStatus.SUCCEEDED.value):
-            execution_data['status'] = WrapStatus.FINISHED.value
+            execution_update_data['status'] = WrapStatus.FINISHED.value
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
         if int(locust_wrapper.end_execution.timestamp()) not in locust_wrapper.dataset_timestamps:
             locust_wrapper.dataset.append({locust_wrapper.end_execution.timestamp(): []})
@@ -304,7 +304,7 @@ def start_handler():
         execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat()}
         if execution_data['execution'][0]['status'] not in (WrapStatus.ERROR.value, WrapStatus.FAILED.value,
                                                             WrapStatus.TERMINATED.value, WrapStatus.SUCCEEDED.value):
-            execution_data['status'] = WrapStatus.RUNNING.value
+            execution_update_data['status'] = WrapStatus.RUNNING.value
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
         if not locust_wrapper.dataset:
             locust_wrapper.dataset.append({locust_wrapper.start_execution.timestamp(): []})
