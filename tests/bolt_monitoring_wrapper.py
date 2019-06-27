@@ -6,6 +6,7 @@ import time
 
 from bolt_api_client import BoltAPIClient
 from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
+from bolt_enums import Status
 from bolt_logger import setup_custom_logger
 
 # envs
@@ -47,9 +48,11 @@ def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_duri
             # try to stop during test
             if stop_during_test_func is not None:
                 stop_during_test_func()
+            execution_data = bolt_api_client.get_execution(EXECUTION_ID)
             # set status FINISHED for execution when monitoring working without load_tests
-            if not has_load_tests:
-                bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
+            if not has_load_tests and execution_data['execution'][0]['status'] not in (
+                    Status.ERROR.value, Status.FAILED.value, Status.TERMINATED.value, Status.SUCCEEDED.value):
+                bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': Status.FINISHED.value})
             return  # exit from function (as success)
         else:
             run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
