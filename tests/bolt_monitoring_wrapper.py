@@ -1,4 +1,6 @@
 import os
+import signal
+import sys
 import threading
 import importlib
 import datetime
@@ -23,6 +25,17 @@ bolt_api_client = BoltAPIClient()
 DURING_TEST_IS_ALIVE = None
 DEADLINE_FOR_WAITING_LOAD_TESTS = 60 * 10  # 10 min
 INTERVAL_FOR_WAITING_LOAD_TESTS = 5
+
+
+def _exit_with_success(signo, stack_frame):
+    logger.info(f'Received signal {signo} | {stack_frame}')
+    logger.info('Exit from monitoring with code 0')
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, _exit_with_success)
+signal.signal(signal.SIGTERM, _exit_with_success)
+signal.signal(signal.SIGQUIT, _exit_with_success)
 
 
 def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_during_test_func=None):
