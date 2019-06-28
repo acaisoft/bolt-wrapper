@@ -32,6 +32,10 @@ INTERVAL_FOR_WAITING_LOAD_TESTS = 5
 
 def _exit_with_success(signo, stack_frame):
     logger.info(f'Received signal {signo} | {stack_frame}')
+    if signo == signal.SIGTERM:
+        execution_data = bolt_api_client.get_execution(EXECUTION_ID)
+        status = execution_data['execution'][0]['status']
+        logger.info(f'Monitoring crashed as daemon. Current status of execution {status}')
     logger.info('Exit from monitoring with code 0')
     sys.exit(0)
 

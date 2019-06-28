@@ -1,5 +1,6 @@
 import datetime
 import json
+import signal
 import sys
 import os
 import importlib
@@ -16,7 +17,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.47'
+WRAPPER_VERSION = '0.2.48'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -47,6 +48,16 @@ bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
 def _exit_with_status(status):
     logger.info(f'Exit with status {status}. For execution_id {EXECUTION_ID}')
     sys.exit(status)
+
+
+def _exit_with_success_signal(signo, stack_frame):
+    logger.info(f'Received signal {signo} | {stack_frame}')
+    if signo == signal.SIGTERM:
+        execution_data = bolt_api_client.get_execution(EXECUTION_ID)
+        status = execution_data['execution'][0]['status']
+        logger.info(f'Load tests crashed as daemon. Current status of execution {status}')
+    logger.info('Exit from master with code 0')
+    sys.exit(0)
 
 
 def _stage_log(msg, level='info'):
@@ -228,6 +239,7 @@ class Runner(object):
     @staticmethod
     def master_slave_detector():
         if WORKER_TYPE == 'master':
+            signal.signal(signal.SIGTERM, _exit_with_success_signal)
             logger.info(f'Master detected.')
             return True, False  # is master
         elif WORKER_TYPE == 'slave':
