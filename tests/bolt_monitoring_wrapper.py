@@ -114,11 +114,11 @@ def run_during_test():
         return None
 
 
-def waiting_for_load_tests():
+def waiting_start_load_tests():
     """
-    Wait until load test is started
+    Wait until load tests is started
     """
-    logger.info('Start execution function `waiting_for_load_tests`')
+    logger.info('Start execution function `waiting_start_load_tests`')
     deadline_for_waiting = time.time() + DEADLINE_FOR_WAITING_LOAD_TESTS
     while deadline_for_waiting > time.time():
         execution_data = bolt_api_client.get_execution(EXECUTION_ID)
@@ -130,11 +130,35 @@ def waiting_for_load_tests():
         else:
             logger.info(f'Retrieve execution status {status} from execution {EXECUTION_ID}')
             if status == 'RUNNING':
-                return True  # positive exit from function (load_test started)
+                return True  # positive exit from function (load_tests started)
             else:
                 time.sleep(INTERVAL_FOR_WAITING_LOAD_TESTS)
                 continue  # continue iteration for waiting load tests
-    return False  # negative exit from function (load_test not started)
+    return False  # negative exit from function (load_tests not started)
+
+
+def waiting_finish_load_tests():
+    """
+    Do not exit from monitoring (process) until load tests finished
+    """
+    logger.info('Start execution function `waiting_finish_load_tests`')
+    deadline_for_waiting = time.time() + DEADLINE_FOR_WAITING_LOAD_TESTS
+    while deadline_for_waiting > time.time():
+        logger.info(f'Waiting when load tests will finishing')
+        execution_data = bolt_api_client.get_execution(EXECUTION_ID)
+        try:
+            status = execution_data['execution'][0]['status']
+        except LookupError:
+            logger.exception('Error during fetching status for execution')
+            time.sleep(INTERVAL_FOR_WAITING_LOAD_TESTS)
+        else:
+            logger.info(f'Retrieve execution status {status} from execution {EXECUTION_ID}')
+            if status != 'RUNNING':
+                return True  # positive exit from function (load_tests started)
+            else:
+                time.sleep(INTERVAL_FOR_WAITING_LOAD_TESTS)
+                continue  # continue iteration for waiting load tests
+    return False  # negative exit from function (load_tests not started)
 
 
 def main(**kwargs):
@@ -152,11 +176,15 @@ def main(**kwargs):
             stop_during_test_func = run_during_test()
             run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
         else:
-            load_test_started = waiting_for_load_tests()
-            if load_test_started:
+            load_tests_started = waiting_start_load_tests()
+            if load_tests_started:
                 deadline = int(time.time()) + int(monitoring_arguments['monitoring_duration'])
                 stop_during_test_func = run_during_test()
                 run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
+                load_tests_finished = waiting_finish_load_tests()
+                if not load_tests_finished:
+                    logger.info('Load tests still didnt finish. Exit from monitoring')
+                    raise MonitoringWaitingExpired(f'Load tests didnt finish {kwargs}')
             else:
                 logger.info('Load test didnt start. The monitoring did not run')
                 raise MonitoringWaitingExpired(f'Load tests didnt start {kwargs}')

@@ -267,6 +267,7 @@ def quitting_handler():
     Will be called before exiting test runner
     """
     if not locust_wrapper.is_finished:
+        wrap_logger.info('Begin quiting handler')
         execution_data = locust_wrapper.bolt_api_client.get_execution(EXECUTION_ID)
         locust_wrapper.end_execution = wrap_datetime.datetime.now()
         execution_update_data = {'end_locust': locust_wrapper.end_execution.isoformat()}
@@ -291,6 +292,7 @@ def quitting_handler():
             _, value = error_item
             locust_wrapper.bolt_api_client.insert_error_results(value)
         locust_wrapper.is_finished = True
+        wrap_logger.info('End quiting handler')
 
 
 def start_handler():
@@ -298,6 +300,7 @@ def start_handler():
     Will be called before starting test runner
     """
     if not locust_wrapper.is_started:
+        wrap_logger.info('Begin start handler')
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
         execution_data = locust_wrapper.bolt_api_client.get_execution(EXECUTION_ID)
         locust_wrapper.start_execution = wrap_datetime.datetime.now()
@@ -310,6 +313,7 @@ def start_handler():
             locust_wrapper.dataset.append({locust_wrapper.start_execution.timestamp(): []})
             locust_wrapper.dataset_timestamps.append(int(locust_wrapper.start_execution.timestamp()))
         locust_wrapper.is_started = True
+        wrap_logger.info('End start handler')
 
 
 def report_from_slave_handler(client_id, data):
