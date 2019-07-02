@@ -333,6 +333,8 @@ def save_to_database(stats):
         try:
             locust_wrapper.bolt_api_client.insert_aggregated_results(stats)
         except GreenletExit as ex:
+            wrap_logger.info('SLEEP 20 sec')
+            wrap_time.sleep(20)
             wrap_logger.info(f'Caught GreenletExit exception during stats saving. {ex}')
             raise
         except:
