@@ -161,24 +161,45 @@ def waiting_finish_load_tests():
     return False  # negative exit from function (load_tests not started)
 
 
+def check_if_monitoring_was_terminated():
+    """
+    If monitoring was terminated we need to exit from POD with success
+    It needs for ignoring retryStrategy as terminated
+    """
+    logger.info('Check if monitoring was terminated')
+    execution_data = bolt_api_client.get_execution(EXECUTION_ID)
+    try:
+        status = execution_data['execution'][0]['status']
+    except LookupError:
+        logger.exception('Error during fetching status for execution')
+    else:
+        logger.info(f'Current status for monitoring {status}')
+        if status == Status.TERMINATED.value:
+            logger.info('Exit from monitoring with success. Status is TERMINATED')
+            sys.exit(0)
+
+
 def main(**kwargs):
     logger.info('Start executing monitoring/during_test')
     # extract kwargs
     has_load_tests = kwargs.get('has_load_tests')
     monitoring_arguments = kwargs.get('monitoring_arguments', {})
     # run monitor if arguments was sending correctly
-    if 'monitoring_interval' in monitoring_arguments and 'monitoring_duration' in monitoring_arguments:
+    if 'monitoring_interval' in monitoring_arguments and 'monitoring_duration' in monitoring_arguments \
+            and 'start' in monitoring_arguments:
         interval = int(monitoring_arguments['monitoring_interval'])
         logger.info(f'Correctly detected arguments for monitoring | {monitoring_arguments}')
+        start = monitoring_arguments['start']
+        start_timestamp = datetime.datetime.fromisoformat(start).timestamp()
+        deadline = int(start_timestamp) + int(monitoring_arguments['monitoring_duration'])
         if not has_load_tests:
+            check_if_monitoring_was_terminated()
             bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'MONITORING'})
-            deadline = int(time.time()) + int(monitoring_arguments['monitoring_duration'])
             stop_during_test_func = run_during_test()
             run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
         else:
             load_tests_started = waiting_start_load_tests()
             if load_tests_started:
-                deadline = int(time.time()) + int(monitoring_arguments['monitoring_duration'])
                 stop_during_test_func = run_during_test()
                 run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
                 load_tests_finished = waiting_finish_load_tests()

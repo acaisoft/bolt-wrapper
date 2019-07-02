@@ -45,6 +45,7 @@ class BoltAPIClient(object):
             query ($execution_id: uuid) {
                 execution(where: {id: {_eq: $execution_id}}) {
                     status
+                    start
                     configuration {
                         instances
                         has_pre_test

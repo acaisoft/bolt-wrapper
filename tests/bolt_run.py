@@ -16,7 +16,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.52'
+WRAPPER_VERSION = '0.2.53'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -154,13 +154,16 @@ class Runner(object):
     def get_monitoring_arguments(data):
         try:
             parameters = data['execution'][0]['configuration']['configuration_parameters']
+            start = data['execution'][0]['start']
             if not parameters:
                 raise LookupError('No arguments for configurations')
         except LookupError as ex:
             logger.exception(f'Error during extracting arguments for monitoring from database | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
-            arguments = {}
+            arguments = {
+                'start': start
+            }
             for p in parameters:
                 parameter_slug = p['parameter_slug']
                 if parameter_slug.startswith('monitoring_'):
