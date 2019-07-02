@@ -6,6 +6,8 @@ import importlib
 import datetime
 import time
 
+from dateutil import parser
+
 from bolt_api_client import BoltAPIClient
 from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
 from bolt_enums import Status
@@ -190,7 +192,7 @@ def main(**kwargs):
         interval = int(monitoring_arguments['monitoring_interval'])
         logger.info(f'Correctly detected arguments for monitoring | {monitoring_arguments}')
         start = monitoring_arguments['start']
-        start_timestamp = datetime.datetime.fromisoformat(start).timestamp()
+        start_timestamp = parser.parse(start).timestamp()
         deadline = int(start_timestamp) + int(monitoring_arguments['monitoring_duration'])
         logger.info(f'Deadline for monitoring {deadline} | Start execution {start_timestamp}')
         if not has_load_tests:
