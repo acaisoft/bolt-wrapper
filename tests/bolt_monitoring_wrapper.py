@@ -192,6 +192,7 @@ def main(**kwargs):
         start = monitoring_arguments['start']
         start_timestamp = datetime.datetime.fromisoformat(start).timestamp()
         deadline = int(start_timestamp) + int(monitoring_arguments['monitoring_duration'])
+        logger.info(f'Deadline for monitoring {deadline} | Start execution {start_timestamp}')
         if not has_load_tests:
             check_if_monitoring_was_terminated()
             bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'MONITORING'})
