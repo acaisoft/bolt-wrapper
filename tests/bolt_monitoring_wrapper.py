@@ -12,6 +12,7 @@ from bolt_api_client import BoltAPIClient
 from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
 from bolt_enums import Status
 from bolt_logger import setup_custom_logger
+from bolt_consts import EXIT_STATUS_ERROR, EXIT_STATUS_SUCCESS
 
 # TODO: need to refactor function run_monitor for working without recursion
 sys.setrecursionlimit(7000)
@@ -32,19 +33,22 @@ DEADLINE_FOR_WAITING_LOAD_TESTS = 60 * 10  # 10 min
 INTERVAL_FOR_WAITING_LOAD_TESTS = 5
 
 
-def _exit_with_success(signo, stack_frame):
+def _signals_exit_handler(signo, stack_frame):
     logger.info(f'Received signal {signo} | {stack_frame}')
     if signo == signal.SIGTERM:
         execution_data = bolt_api_client.get_execution(EXECUTION_ID)
         status = execution_data['execution'][0]['status']
-        logger.info(f'Monitoring crashed as daemon. Current status of execution {status}')
+        if status == Status.RUNNING.value:
+            logger.info('Monitoring crashed but load tests still running. Restart monitoring pod')
+            logger.info('Exit from monitoring with code 1')
+            sys.exit(EXIT_STATUS_ERROR)
     logger.info('Exit from monitoring with code 0')
-    sys.exit(0)
+    sys.exit(EXIT_STATUS_SUCCESS)
 
 
-signal.signal(signal.SIGINT, _exit_with_success)
-signal.signal(signal.SIGTERM, _exit_with_success)
-signal.signal(signal.SIGQUIT, _exit_with_success)
+signal.signal(signal.SIGINT, _signals_exit_handler)
+signal.signal(signal.SIGTERM, _signals_exit_handler)
+signal.signal(signal.SIGQUIT, _signals_exit_handler)
 
 
 def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_during_test_func=None):
@@ -163,24 +167,6 @@ def waiting_finish_load_tests():
     return False  # negative exit from function (load_tests not started)
 
 
-def check_if_monitoring_was_terminated():
-    """
-    If monitoring was terminated we need to exit from POD with success
-    It needs for ignoring retryStrategy as terminated
-    """
-    logger.info('Check if monitoring was terminated')
-    execution_data = bolt_api_client.get_execution(EXECUTION_ID)
-    try:
-        status = execution_data['execution'][0]['status']
-    except LookupError:
-        logger.exception('Error during fetching status for execution')
-    else:
-        logger.info(f'Current status for monitoring {status}')
-        if status == Status.TERMINATED.value:
-            logger.info('Exit from monitoring with success. Status is TERMINATED')
-            sys.exit(0)
-
-
 def main(**kwargs):
     logger.info('Start executing monitoring/during_test')
     # extract kwargs
@@ -189,14 +175,12 @@ def main(**kwargs):
     # run monitor if arguments was sending correctly
     if 'monitoring_interval' in monitoring_arguments and 'monitoring_duration' in monitoring_arguments \
             and 'start' in monitoring_arguments:
-        interval = int(monitoring_arguments['monitoring_interval'])
         logger.info(f'Correctly detected arguments for monitoring | {monitoring_arguments}')
-        start = monitoring_arguments['start']
-        start_timestamp = parser.parse(start).timestamp()
+        interval = int(monitoring_arguments['monitoring_interval'])
+        start_timestamp = parser.parse(monitoring_arguments['start']).timestamp()
         deadline = int(start_timestamp) + int(monitoring_arguments['monitoring_duration'])
         logger.info(f'Deadline for monitoring {deadline} | Start execution {start_timestamp}')
         if not has_load_tests:
-            check_if_monitoring_was_terminated()
             bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'MONITORING'})
             stop_during_test_func = run_during_test()
             run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)

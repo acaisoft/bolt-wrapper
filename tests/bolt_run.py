@@ -1,5 +1,4 @@
 import json
-import signal
 import sys
 import os
 import importlib
@@ -10,13 +9,15 @@ from locust.main import main as locust_main
 from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
 from bolt_logger import setup_custom_logger
 from bolt_api_client import BoltAPIClient
+from bolt_enums import Status
+from bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
 
 # TODO: temporary solution for disabling warnings
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.56'
+WRAPPER_VERSION = '0.2.57'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -35,31 +36,20 @@ logger.info(f'master host: {MASTER_HOST}')
 logger.info(f'nfs mount path: {NFS_MOUNT}')
 logger.info(os.environ)
 
-# consts
-EXIT_STATUS_SUCCESS = 0
-EXIT_STATUS_ERROR = 1
 SCENARIO_TYPE: str
 
 no_keep_alive = True if WORKER_TYPE == 'slave' else False
 bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
 
 
-def _exit_with_status(status):
+def _exit_with_status(status, reason=None):
     logger.info(f'Exit with status {status}. For execution_id {EXECUTION_ID}')
+    if reason is not None:
+        logger.info(f'Reason: {reason}')
     sys.exit(status)
 
 
-def _exit_with_success_signal(signo, stack_frame):
-    logger.info(f'Received signal {signo} | {stack_frame}')
-    if signo == signal.SIGTERM:
-        execution_data = bolt_api_client.get_execution(EXECUTION_ID)
-        status = execution_data['execution'][0]['status']
-        logger.info(f'Load tests crashed as daemon. Current status of execution {status}')
-    logger.info('Exit from master with code 0')
-    sys.exit(0)
-
-
-def _import_and_run(scenario_type, module_name, func_name='main', **kwargs):
+def _import_and_run(module_name, func_name='main', **kwargs):
     try:
         module = importlib.import_module(module_name)
         func = getattr(module, func_name)
@@ -224,7 +214,6 @@ class Runner(object):
     @staticmethod
     def master_slave_detector():
         if WORKER_TYPE == 'master':
-            signal.signal(signal.SIGTERM, _exit_with_success_signal)
             logger.info(f'Master detected.')
             return True, False  # is master
         elif WORKER_TYPE == 'slave':
@@ -246,21 +235,33 @@ class Runner(object):
             'host': MASTER_HOST, 'port': 5557, 'status': 'READY', 'instance_type': WORKER_TYPE})
         return ['--slave', f'--master-host={MASTER_HOST}']  # additional arguments for slave
 
+    @staticmethod
+    def flow_was_terminated(execution_data):
+        logger.info('Checking if the flow was terminated')
+        status = execution_data['execution'][0]['status']
+        if status == Status.TERMINATED.value:
+            return True
+        else:
+            return False
+
 
 def main():
     runner = Runner()
     scenario_type = runner.scenario_detector()
     execution_data = bolt_api_client.get_execution(execution_id=EXECUTION_ID)
+    # if flow terminated we should exit from container as success (without retries)
+    if runner.flow_was_terminated(execution_data):
+        _exit_with_status(status=EXIT_STATUS_SUCCESS, reason='Flow was terminated')
     runner.set_configuration_environments(execution_data)
     if scenario_type == 'pre_start':
-        _import_and_run(scenario_type, 'bolt_flow.pre_start')
+        _import_and_run('bolt_flow.pre_start')
     elif scenario_type == 'post_stop':
-        _import_and_run(scenario_type, 'bolt_flow.post_stop')
+        _import_and_run('bolt_flow.post_stop')
     elif scenario_type == 'monitoring':
         monitoring_arguments = runner.get_monitoring_arguments(execution_data)
         has_load_tests = runner.has_load_tests(execution_data)
         _import_and_run(
-            scenario_type, 'bolt_monitoring_wrapper',
+            'bolt_monitoring_wrapper',
             has_load_tests=has_load_tests, monitoring_arguments=monitoring_arguments
         )
     elif scenario_type == 'load_tests':
