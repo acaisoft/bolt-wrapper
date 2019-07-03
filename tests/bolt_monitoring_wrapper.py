@@ -131,7 +131,7 @@ def waiting_start_load_tests():
         try:
             status = execution_instance['execution_instance'][0]['status']
         except LookupError:
-            logger.exception('Error during fetching status for execution instance')
+            logger.info('Error during fetching status for execution instance')
             time.sleep(INTERVAL_FOR_WAITING_LOAD_TESTS)
         else:
             logger.info(f'Retrieve execution instance status {status} from execution {EXECUTION_ID}')
@@ -172,6 +172,13 @@ def main(**kwargs):
     # extract kwargs
     has_load_tests = kwargs.get('has_load_tests')
     monitoring_arguments = kwargs.get('monitoring_arguments', {})
+    try:
+        execution_instance = bolt_api_client.get_execution_instance(EXECUTION_ID, 'monitoring')
+        status = execution_instance['execution_instance'][0]['status']
+        logger.info(f'Found execution instance for monitoring. Status {status}')
+    except LookupError:
+        bolt_api_client.insert_execution_instance({'status': 'READY', 'instance_type': 'monitoring'})
+        logger.info('Inserted new execution instance for monitoring with status READY')
     # run monitor if arguments was sending correctly
     if 'monitoring_interval' in monitoring_arguments and 'monitoring_duration' in monitoring_arguments \
             and 'start' in monitoring_arguments:
