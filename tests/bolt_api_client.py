@@ -231,15 +231,18 @@ class BoltAPIClient(object):
         return result
 
     @log_time_execution(logger)
-    def get_execution_instance(self, _id):
+    def get_execution_instance(self, execution_id, instance_type):
         query = gql('''
-            query ($id: uuid) {
-                execution_instance (where: {id: {_eq: $id}}) {
+            query ($execution_id: uuid, $instance_type: String) {
+                execution_instance(where: {execution_id: {_eq: $execution_id}, instance_type: {_eq: $instance_type}}) {
                     id
+                    status
+                    instance_type
                 }
             }
         ''')
-        result = self.gql_client.execute(query, variable_values={'id': _id})
+        variable_values = {'execution_id': execution_id, 'instance_type': instance_type}
+        result = self.gql_client.execute(query, variable_values=variable_values)
         return result
 
     @log_time_execution(logger)

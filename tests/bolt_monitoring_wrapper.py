@@ -127,15 +127,15 @@ def waiting_start_load_tests():
     logger.info('Start execution function `waiting_start_load_tests`')
     deadline_for_waiting = time.time() + DEADLINE_FOR_WAITING_LOAD_TESTS
     while deadline_for_waiting > time.time():
-        execution_data = bolt_api_client.get_execution(EXECUTION_ID)
+        execution_instance = bolt_api_client.get_execution_instance(EXECUTION_ID, 'load_tests')
         try:
-            status = execution_data['execution'][0]['status']
+            status = execution_instance['execution_instance'][0]['status']
         except LookupError:
-            logger.exception('Error during fetching status for execution')
+            logger.exception('Error during fetching status for execution instance')
             time.sleep(INTERVAL_FOR_WAITING_LOAD_TESTS)
         else:
-            logger.info(f'Retrieve execution status {status} from execution {EXECUTION_ID}')
-            if status == 'RUNNING':
+            logger.info(f'Retrieve execution instance status {status} from execution {EXECUTION_ID}')
+            if status == 'READY':
                 return True  # positive exit from function (load_tests started)
             else:
                 time.sleep(INTERVAL_FOR_WAITING_LOAD_TESTS)
@@ -189,10 +189,10 @@ def main(**kwargs):
             if load_tests_started:
                 stop_during_test_func = run_during_test()
                 run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
-                load_tests_finished = waiting_finish_load_tests()
-                if not load_tests_finished:
-                    logger.info('Load tests still didnt finish. Exit from monitoring')
-                    raise MonitoringWaitingExpired(f'Load tests didnt finish {kwargs}')
+                # load_tests_finished = waiting_finish_load_tests()
+                # if not load_tests_finished:
+                #     logger.info('Load tests still didnt finish. Exit from monitoring')
+                #     raise MonitoringWaitingExpired(f'Load tests didnt finish {kwargs}')
             else:
                 logger.info('Load test didnt start. The monitoring did not run')
                 raise MonitoringWaitingExpired(f'Load tests didnt start {kwargs}')
