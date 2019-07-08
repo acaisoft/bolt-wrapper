@@ -143,28 +143,16 @@ def waiting_start_load_tests():
     return False  # negative exit from function (load_tests not started)
 
 
-def waiting_finish_load_tests():
-    """
-    Do not exit from monitoring (process) until load tests finished
-    """
-    logger.info('Start execution function `waiting_finish_load_tests`')
-    deadline_for_waiting = time.time() + DEADLINE_FOR_WAITING_LOAD_TESTS
-    while deadline_for_waiting > time.time():
-        logger.info(f'Waiting when load tests will finishing')
-        execution_data = bolt_api_client.get_execution(EXECUTION_ID)
-        try:
-            status = execution_data['execution'][0]['status']
-        except LookupError:
-            logger.exception('Error during fetching status for execution')
-            time.sleep(INTERVAL_FOR_WAITING_LOAD_TESTS)
-        else:
-            logger.info(f'Retrieve execution status {status} from execution {EXECUTION_ID}')
-            if status != 'RUNNING':
-                return True  # positive exit from function (load_tests started)
-            else:
-                time.sleep(INTERVAL_FOR_WAITING_LOAD_TESTS)
-                continue  # continue iteration for waiting load tests
-    return False  # negative exit from function (load_tests not started)
+def get_or_create_execution_instance():
+    try:
+        response = bolt_api_client.get_execution_instance(EXECUTION_ID, 'monitoring')
+        execution_instance = response['execution_instance'][0]
+        logger.info(f'Found execution instance for monitoring | {execution_instance}')
+        return execution_instance
+    except IndexError:
+        response = bolt_api_client.insert_execution_instance({'status': 'READY', 'instance_type': 'monitoring'})
+        logger.info('Created new execution instance for monitoring with status READY')
+        return response['insert_execution_instance']['returning'][0]
 
 
 def main(**kwargs):
@@ -172,21 +160,14 @@ def main(**kwargs):
     # extract kwargs
     has_load_tests = kwargs.get('has_load_tests')
     monitoring_arguments = kwargs.get('monitoring_arguments', {})
-    try:
-        execution_instance = bolt_api_client.get_execution_instance(EXECUTION_ID, 'monitoring')
-        status = execution_instance['execution_instance'][0]['status']
-        logger.info(f'Found execution instance for monitoring. Status {status}')
-    except LookupError:
-        bolt_api_client.insert_execution_instance({'status': 'READY', 'instance_type': 'monitoring'})
-        logger.info('Inserted new execution instance for monitoring with status READY')
     # run monitor if arguments was sending correctly
-    if 'monitoring_interval' in monitoring_arguments and 'monitoring_duration' in monitoring_arguments \
-            and 'start' in monitoring_arguments:
+    if 'monitoring_interval' in monitoring_arguments and 'monitoring_duration' in monitoring_arguments:
         logger.info(f'Correctly detected arguments for monitoring | {monitoring_arguments}')
+        execution_instance = get_or_create_execution_instance()
         interval = int(monitoring_arguments['monitoring_interval'])
-        start_timestamp = parser.parse(monitoring_arguments['start']).timestamp()
+        start_timestamp = parser.parse(execution_instance['created_at']).timestamp()
         deadline = int(start_timestamp) + int(monitoring_arguments['monitoring_duration'])
-        logger.info(f'Deadline for monitoring {deadline} | Start execution {start_timestamp}')
+        logger.info(f'Monitoring deadline {datetime.datetime.fromtimestamp(deadline)}')
         if not has_load_tests:
             bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'MONITORING'})
             stop_during_test_func = run_during_test()
@@ -196,10 +177,6 @@ def main(**kwargs):
             if load_tests_started:
                 stop_during_test_func = run_during_test()
                 run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
-                # load_tests_finished = waiting_finish_load_tests()
-                # if not load_tests_finished:
-                #     logger.info('Load tests still didnt finish. Exit from monitoring')
-                #     raise MonitoringWaitingExpired(f'Load tests didnt finish {kwargs}')
             else:
                 logger.info('Load test didnt start. The monitoring did not run')
                 raise MonitoringWaitingExpired(f'Load tests didnt start {kwargs}')

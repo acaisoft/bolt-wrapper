@@ -238,6 +238,11 @@ class BoltAPIClient(object):
                     id
                     status
                     instance_type
+                    created_at
+                    updated_at
+                    execution {
+                        status
+                    }
                 }
             }
         ''')
@@ -251,6 +256,16 @@ class BoltAPIClient(object):
             mutation ($data: execution_instance_insert_input!) {
                 insert_execution_instance (objects: [$data]) {
                     affected_rows
+                    returning {
+                        id
+                        status
+                        instance_type
+                        created_at
+                        updated_at
+                        execution {
+                            status
+                        }
+                    }
                 }
             }
         ''')
