@@ -131,6 +131,12 @@ def waiting_start_load_tests():
     logger.info('Start execution function `waiting_start_load_tests`')
     deadline_for_waiting = time.time() + DEADLINE_FOR_WAITING_LOAD_TESTS
     while deadline_for_waiting > time.time():
+        # check execution status
+        execution_data = bolt_api_client.get_execution(EXECUTION_ID)
+        if execution_data['execution'][0]['status'] in (
+                Status.FAILED.value, Status.ERROR.value, Status.TERMINATED.value):
+            return False  # negative exit from function (load_tests/flow crashed)
+        # check execution instance status
         execution_instance = bolt_api_client.get_execution_instance(EXECUTION_ID, 'load_tests')
         try:
             status = execution_instance['execution_instance'][0]['status']
