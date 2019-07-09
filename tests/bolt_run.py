@@ -17,7 +17,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.65'
+WRAPPER_VERSION = '0.2.66'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -233,10 +233,10 @@ class Runner(object):
         return ['--slave', f'--master-host={MASTER_HOST}']  # additional arguments for slave
 
     @staticmethod
-    def flow_was_terminated(execution_data):
+    def flow_was_terminated_or_failed(execution_data):
         logger.info('Checking if the flow was terminated')
         status = execution_data['execution'][0]['status']
-        if status == Status.TERMINATED.value:
+        if status in (Status.TERMINATED.value, Status.FAILED.value, Status.ERROR.value):
             return True
         else:
             return False
@@ -247,8 +247,8 @@ def main():
     scenario_type = runner.scenario_detector()
     execution_data = bolt_api_client.get_execution(execution_id=EXECUTION_ID)
     # if flow terminated we should exit from container as success (without retries)
-    if runner.flow_was_terminated(execution_data):
-        _exit_with_status(status=EXIT_STATUS_SUCCESS, reason='Flow was terminated')
+    if runner.flow_was_terminated_or_failed(execution_data):
+        _exit_with_status(status=EXIT_STATUS_SUCCESS, reason='Flow was terminated or failed')
     runner.set_configuration_environments(execution_data)
     if scenario_type == 'pre_start':
         _import_and_run('bolt_flow.pre_start')

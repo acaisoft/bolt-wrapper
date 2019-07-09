@@ -14,7 +14,6 @@ from locust import events as wrap_events, runners as wrap_runners
 
 from bolt_logger import setup_custom_logger as wrap_setup_custom_logger
 from bolt_api_client import BoltAPIClient as WrapBoltAPIClient
-from bolt_enums import Status as WrapStatus
 
 # TODO: temporary solution for disabling warnings
 import urllib3
@@ -268,12 +267,8 @@ def quitting_handler():
     """
     if not locust_wrapper.is_finished:
         wrap_logger.info('Begin quiting handler')
-        # execution_data = locust_wrapper.bolt_api_client.get_execution(EXECUTION_ID)
         locust_wrapper.end_execution = wrap_datetime.datetime.now()
         execution_update_data = {'end_locust': locust_wrapper.end_execution.isoformat()}
-        # if execution_data['execution'][0]['status'] not in (WrapStatus.ERROR.value, WrapStatus.FAILED.value,
-        #                                                     WrapStatus.TERMINATED.value, WrapStatus.SUCCEEDED.value):
-        #     execution_update_data['status'] = WrapStatus.FINISHED.value
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
         if int(locust_wrapper.end_execution.timestamp()) not in locust_wrapper.dataset_timestamps:
             locust_wrapper.dataset.append({locust_wrapper.end_execution.timestamp(): []})
@@ -303,12 +298,8 @@ def start_handler():
         wrap_logger.info('Begin start handler')
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
         locust_wrapper.bolt_api_client.insert_execution_instance({'status': 'READY', 'instance_type': 'load_tests'})
-        execution_data = locust_wrapper.bolt_api_client.get_execution(EXECUTION_ID)
         locust_wrapper.start_execution = wrap_datetime.datetime.now()
         execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat()}
-        # if execution_data['execution'][0]['status'] not in (WrapStatus.ERROR.value, WrapStatus.FAILED.value,
-        #                                                     WrapStatus.TERMINATED.value, WrapStatus.SUCCEEDED.value):
-        #     execution_update_data['status'] = WrapStatus.RUNNING.value
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
         if not locust_wrapper.dataset:
             locust_wrapper.dataset.append({locust_wrapper.start_execution.timestamp(): []})
