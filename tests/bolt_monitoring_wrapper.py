@@ -1,4 +1,5 @@
 import os
+import signal
 import sys
 import threading
 import importlib
@@ -11,6 +12,7 @@ from bolt_api_client import BoltAPIClient
 from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
 from bolt_enums import Status
 from bolt_logger import setup_custom_logger
+from bolt_consts import EXIT_STATUS_ERROR, EXIT_STATUS_SUCCESS
 
 # TODO: need to refactor function run_monitor for working without recursion
 sys.setrecursionlimit(7000)
@@ -29,6 +31,25 @@ bolt_api_client = BoltAPIClient()
 DURING_TEST_IS_ALIVE = None
 DEADLINE_FOR_WAITING_LOAD_TESTS = 60 * 10  # 10 min
 INTERVAL_FOR_WAITING_LOAD_TESTS = 5
+
+
+def _signals_exit_handler(signo, stack_frame):
+    logger.info(f'Received signal {signo} | {stack_frame}')
+    if signo == signal.SIGTERM:
+        execution_instance = bolt_api_client.get_execution_instance(EXECUTION_ID, 'monitoring')
+        status = execution_instance['execution_instance'][0]['status']
+        logger.info(f'Signal handler. Status of monitoring is {status}')
+        # if monitoring did not finish successfully -> exit with error
+        if status != Status.SUCCEEDED.value:
+            logger.info('Monitoring did not finish successfully. Exit with error (code 1)')
+            sys.exit(EXIT_STATUS_ERROR)
+    logger.info('Exit from monitoring with code 0')
+    sys.exit(EXIT_STATUS_SUCCESS)
+
+
+signal.signal(signal.SIGINT, _signals_exit_handler)
+signal.signal(signal.SIGTERM, _signals_exit_handler)
+signal.signal(signal.SIGQUIT, _signals_exit_handler)
 
 
 def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_during_test_func=None):
@@ -55,10 +76,13 @@ def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_duri
             if stop_during_test_func is not None:
                 stop_during_test_func()
             execution_data = bolt_api_client.get_execution(EXECUTION_ID)
-            # set status FINISHED for execution when monitoring working without load_tests
+            # set status SUCCEEDED for execution when monitoring working without load_tests
             if not has_load_tests and execution_data['execution'][0]['status'] not in (
                     Status.ERROR.value, Status.FAILED.value, Status.TERMINATED.value, Status.SUCCEEDED.value):
-                bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': Status.FINISHED.value})
+                bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': Status.SUCCEEDED.value})
+            # set status SUCCEEDED for execution instance
+            bolt_api_client.update_execution_instance(
+                EXECUTION_ID, 'monitoring', {'status': Status.SUCCEEDED.value, 'updated_at': 'now()'})
             return  # exit from function (as success)
         else:
             run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
