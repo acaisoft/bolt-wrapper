@@ -35,19 +35,20 @@ INTERVAL_FOR_WAITING_LOAD_TESTS = 5
 
 def _signals_exit_handler(signo, stack_frame):
     logger.info(f'Received signal {signo} | {stack_frame}')
-    if signo == signal.SIGQUIT:
+    if signo == signal.SIGTERM:
         execution_instance = bolt_api_client.get_execution_instance(EXECUTION_ID, 'monitoring')
         status = execution_instance['execution_instance'][0]['status']
         logger.info(f'Signal handler. Status of monitoring is {status}')
         # if monitoring did not finish successfully -> exit with error
         if status != Status.SUCCEEDED.value:
             logger.info('Monitoring did not finish successfully. Exit with error (code 1)')
-            os.kill(os.getpid(), signal.SIGTERM)
-            sys.exit(EXIT_STATUS_ERROR)
+            sys.exit(EXIT_STATUS_SUCCESS)
     logger.info('Exit from monitoring with code 0')
     sys.exit(EXIT_STATUS_SUCCESS)
 
 
+signal.signal(signal.SIGINT, _signals_exit_handler)
+signal.signal(signal.SIGTERM, _signals_exit_handler)
 signal.signal(signal.SIGQUIT, _signals_exit_handler)
 
 
