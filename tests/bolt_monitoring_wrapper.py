@@ -12,7 +12,7 @@ from bolt_api_client import BoltAPIClient
 from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
 from bolt_enums import Status
 from bolt_logger import setup_custom_logger
-from bolt_consts import EXIT_STATUS_SUCCESS
+from bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
 
 # TODO: need to refactor function run_monitor for working without recursion
 sys.setrecursionlimit(7000)
@@ -45,6 +45,7 @@ def _signals_exit_handler(signo, stack_frame):
             global FLOW_WAS_TERMINATED_OR_FAILED
             FLOW_WAS_TERMINATED_OR_FAILED = True
             logger.info('Monitoring did not finish successfully. Exit with error (code 1)')
+            sys.exit(EXIT_STATUS_ERROR)
     logger.info('Exit from monitoring with code 0')
     sys.exit(EXIT_STATUS_SUCCESS)
 
