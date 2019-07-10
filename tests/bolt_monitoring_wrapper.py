@@ -1,4 +1,5 @@
 import os
+import signal
 import sys
 import threading
 import importlib
@@ -11,6 +12,7 @@ from bolt_api_client import BoltAPIClient
 from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
 from bolt_enums import Status
 from bolt_logger import setup_custom_logger
+from bolt_consts import EXIT_STATUS_SUCCESS
 
 # TODO: need to refactor function run_monitor for working without recursion
 sys.setrecursionlimit(7000)
@@ -27,8 +29,27 @@ bolt_api_client = BoltAPIClient()
 
 # True - is alive | False - is not alive | None - was not running
 DURING_TEST_IS_ALIVE = None
+FLOW_WAS_TERMINATED_OR_FAILED = False
 DEADLINE_FOR_WAITING_LOAD_TESTS = 60 * 10  # 10 min
 INTERVAL_FOR_WAITING_LOAD_TESTS = 5
+
+
+def _signals_exit_handler(signo, stack_frame):
+    logger.info(f'Received signal {signo} | {stack_frame}')
+    if signo == signal.SIGTERM:
+        execution_instance = bolt_api_client.get_execution_instance(EXECUTION_ID, 'monitoring')
+        status = execution_instance['execution_instance'][0]['status']
+        logger.info(f'Signal handler. Status of monitoring is {status}')
+        # if monitoring did not finish successfully -> exit with error
+        if status != Status.SUCCEEDED.value:
+            global FLOW_WAS_TERMINATED_OR_FAILED
+            FLOW_WAS_TERMINATED_OR_FAILED = True
+            logger.info('Monitoring did not finish successfully. Exit with error (code 1)')
+    logger.info('Exit from monitoring with code 0')
+    sys.exit(EXIT_STATUS_SUCCESS)
+
+
+signal.signal(signal.SIGTERM, _signals_exit_handler)
 
 
 def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_during_test_func=None):
@@ -37,7 +58,9 @@ def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_duri
     """
     try:
         if DURING_TEST_IS_ALIVE is False:
-            raise Exception(f'During test is not alive. Exit from monitoring.')
+            raise Exception(f'During test is not alive. Exit from monitoring')
+        elif FLOW_WAS_TERMINATED_OR_FAILED:
+            raise Exception(f'Flow was terminated or failed. Exit from monitoring')
         else:
             json_data = monitoring_func()
             if json_data is not None:
