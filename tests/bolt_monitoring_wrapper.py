@@ -42,7 +42,7 @@ def _signals_exit_handler(signo, stack_frame):
         # if monitoring did not finish successfully -> exit with error
         if status != Status.SUCCEEDED.value:
             logger.info('Monitoring did not finish successfully. Exit with error (code 1)')
-            sys.exit(EXIT_STATUS_SUCCESS)
+            raise MonitoringError('Exit from monitoring with error')
     logger.info('Exit from monitoring with code 0')
     sys.exit(EXIT_STATUS_SUCCESS)
 
