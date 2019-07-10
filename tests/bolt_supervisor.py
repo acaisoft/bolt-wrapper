@@ -28,7 +28,7 @@ class Supervisor(object):
                 if status in (Status.FAILED.value, Status.ERROR.value, Status.TERMINATED.value):
                     logger.info('Supervisor. Flow crashed/terminated. Call signal SIGTERM and exit')
                     os.kill(os.getpid(), signal.SIGTERM)
-                    raise SystemExit('Exit from interpreter')
+                    break
             finally:
                 time.sleep(7)
 

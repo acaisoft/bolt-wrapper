@@ -78,8 +78,8 @@ def run_monitoring(has_load_tests: bool, deadline: int, interval: int, stop_duri
             # try to stop during test
             if stop_during_test_func is not None:
                 stop_during_test_func()
-            execution_data = bolt_api_client.get_execution(EXECUTION_ID)
             # set status SUCCEEDED for execution when monitoring working without load_tests
+            execution_data = bolt_api_client.get_execution(EXECUTION_ID)
             if not has_load_tests and execution_data['execution'][0]['status'] not in (
                     Status.ERROR.value, Status.FAILED.value, Status.TERMINATED.value, Status.SUCCEEDED.value):
                 bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': Status.SUCCEEDED.value})
