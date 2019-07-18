@@ -196,32 +196,32 @@ class LocustWrapper(object):
 
     def push_event(self, data, event_type):
         # extracting errors for common cases (when WORKER_TYPE is not 'master' or 'slave')
-        # if event_type == 'failure':
-        #     combined_key = '{0}/{1}/{2}'.format(data['request_type'], data['endpoint'], data['exception'])
-        #     combined_key = wrap_re.sub(r' object at 0x\S*', '', combined_key)  # delete trash (obj address) from key
-        #     try:
-        #         error = self.errors[combined_key]
-        #         error['number_of_occurrences'] = error['number_of_occurrences'] + 1
-        #     except KeyError:
-        #         new_error = {combined_key: {
-        #             'execution_id': self.execution, 'number_of_occurrences': 1, 'name': data['endpoint'],
-        #             'error_type': data['request_type'], 'exception_data': data['exception']
-        #         }}
-        #         self.errors.update(new_error)
-        # # extracting errors when WORKER_TYPE is 'master'
-        # elif event_type == 'master' and 'errors' in data.keys() and data['errors']:
-        #     for error in data['errors'].values():
-        #         combined_key = '{0}/{1}/{2}'.format(error['method'], error['name'], error['error'])
-        #         combined_key = wrap_re.sub(r' object at 0x\S*', '', combined_key)  # delete trash (obj address) from key
-        #         try:
-        #             _error = self.errors[combined_key]
-        #             _error['number_of_occurrences'] += error['occurences']
-        #         except KeyError:
-        #             new_error = {combined_key: {
-        #                 'execution_id': self.execution, 'number_of_occurrences': error['occurences'],
-        #                 'name': error['name'], 'error_type': error['method'], 'exception_data': error['error']
-        #             }}
-        #             self.errors.update(new_error)
+        if event_type == 'failure':
+            combined_key = '{0}/{1}/{2}'.format(data['request_type'], data['endpoint'], data['exception'])
+            combined_key = wrap_re.sub(r' object at 0x\S*', '', combined_key)  # delete trash (obj address) from key
+            try:
+                error = self.errors[combined_key]
+                error['number_of_occurrences'] = error['number_of_occurrences'] + 1
+            except KeyError:
+                new_error = {combined_key: {
+                    'execution_id': self.execution, 'number_of_occurrences': 1, 'name': data['endpoint'],
+                    'error_type': data['request_type'], 'exception_data': data['exception']
+                }}
+                self.errors.update(new_error)
+        # extracting errors when WORKER_TYPE is 'master'
+        elif event_type == 'master' and 'errors' in data.keys() and data['errors']:
+            for error in data['errors'].values():
+                combined_key = '{0}/{1}/{2}'.format(error['method'], error['name'], error['error'])
+                combined_key = wrap_re.sub(r' object at 0x\S*', '', combined_key)  # delete trash (obj address) from key
+                try:
+                    _error = self.errors[combined_key]
+                    _error['number_of_occurrences'] += error['occurences']
+                except KeyError:
+                    new_error = {combined_key: {
+                        'execution_id': self.execution, 'number_of_occurrences': error['occurences'],
+                        'name': error['name'], 'error_type': error['method'], 'exception_data': error['error']
+                    }}
+                    self.errors.update(new_error)
         # push event to dataset for common cases
         last_timestamp = list(self.dataset[-1].keys())[0]
         now_timestamp = wrap_time.time()
@@ -246,7 +246,7 @@ def success_handler(request_type, name, response_time, response_length):
         'response_length': response_length, 'response_time': float(response_time), 'event_type': 'success',
         'timestamp': int(wrap_time.time()),
     }
-    locust_wrapper.push_event(received_data, event_type='success')
+    # locust_wrapper.push_event(received_data, event_type='success')
 
 
 def failure_handler(request_type, name, response_time, exception):
@@ -258,7 +258,7 @@ def failure_handler(request_type, name, response_time, exception):
         'request_type': request_type, 'response_length': 0, 'response_time': float(response_time),
         'event_type': 'failure', 'timestamp': int(wrap_time.time()),
     }
-    locust_wrapper.push_event(received_data, event_type='failure')
+    # locust_wrapper.push_event(received_data, event_type='failure')
 
 
 def quitting_handler():
@@ -337,17 +337,14 @@ def save_to_database(stats):
 
 
 if WORKER_TYPE == 'master':
-    wrap_logger.info('MASTER IF ................')
     database_save_event = wrap_events.EventHook()
     database_save_event += save_to_database
     wrap_events.slave_report += report_from_slave_handler  # catch stats from slaves
     wrap_events.master_start_hatching += start_handler  # start testing (master)
     wrap_events.quitting += quitting_handler  # stop testing (master)
 elif WORKER_TYPE == 'slave':
-    wrap_logger.info('SLAVE IF ................')
     pass  # slave need just for sending stats to master
 else:
-    wrap_logger.info('ELSE ................')
     # handlers for common testing (without master/slave)
     database_save_event = wrap_events.EventHook()
     database_save_event += save_to_database
