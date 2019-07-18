@@ -14,9 +14,6 @@ from bolt_enums import Status
 from bolt_logger import setup_custom_logger
 from bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
 
-# TODO: need to refactor function run_monitor for working without recursion
-sys.setrecursionlimit(7000)
-
 # envs
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
 DURING_TEST_INTERVAL = os.getenv('DURING_TEST_INTERVAL')

@@ -310,8 +310,7 @@ def report_from_slave_handler(client_id, data):
     Using when WORKER_TYPE is 'master' for receiving stats from slaves.
     """
     if locust_wrapper.is_started:
-        wrap_logger.info(data)
-        # locust_wrapper.push_event(data=data, event_type=WORKER_TYPE)
+        locust_wrapper.push_event(data=data, event_type=WORKER_TYPE)
 
 
 def save_to_database(stats):
