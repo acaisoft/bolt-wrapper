@@ -246,7 +246,7 @@ def success_handler(request_type, name, response_time, response_length):
         'response_length': response_length, 'response_time': float(response_time), 'event_type': 'success',
         'timestamp': int(wrap_time.time()),
     }
-    # locust_wrapper.push_event(received_data, event_type='success')
+    locust_wrapper.push_event(received_data, event_type='success')
 
 
 def failure_handler(request_type, name, response_time, exception):
@@ -258,7 +258,7 @@ def failure_handler(request_type, name, response_time, exception):
         'request_type': request_type, 'response_length': 0, 'response_time': float(response_time),
         'event_type': 'failure', 'timestamp': int(wrap_time.time()),
     }
-    # locust_wrapper.push_event(received_data, event_type='failure')
+    locust_wrapper.push_event(received_data, event_type='failure')
 
 
 def quitting_handler():
@@ -310,6 +310,7 @@ def report_from_slave_handler(client_id, data):
     Using when WORKER_TYPE is 'master' for receiving stats from slaves.
     """
     if locust_wrapper.is_started:
+        pass
         locust_wrapper.push_event(data=data, event_type=WORKER_TYPE)
 
 
