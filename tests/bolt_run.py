@@ -9,7 +9,7 @@ from locust.main import main as locust_main
 from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
 from bolt_logger import setup_custom_logger
 from bolt_api_client import BoltAPIClient
-from bolt_supervisor import Supervisor
+# from bolt_supervisor import Supervisor
 from bolt_enums import Status
 from bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
 
@@ -19,7 +19,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # envs
-WRAPPER_VERSION = '0.2.84'
+WRAPPER_VERSION = '0.2.85'
 GRAPHQL_URL = os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')
@@ -246,7 +246,7 @@ class Runner(object):
 
 def main():
     runner = Runner()
-    supervisor = Supervisor()
+    # supervisor = Supervisor()
     scenario_type = runner.scenario_detector()
     execution_data = bolt_api_client.get_execution(execution_id=EXECUTION_ID)
     # if flow terminated we should exit from container as success (without retries)
@@ -258,7 +258,7 @@ def main():
     elif scenario_type == 'post_stop':
         _import_and_run('bolt_flow.post_stop')
     elif scenario_type == 'monitoring':
-        supervisor.run()
+        # supervisor.run()
         monitoring_arguments = runner.get_monitoring_arguments(execution_data)
         has_load_tests = runner.has_load_tests(execution_data)
         _import_and_run(
@@ -266,7 +266,7 @@ def main():
             has_load_tests=has_load_tests, monitoring_arguments=monitoring_arguments
         )
     elif scenario_type == 'load_tests':
-        supervisor.run()
+        # supervisor.run()
         runner.set_environments_for_load_tests(execution_data)
         # master/slave
         additional_arguments = None
