@@ -310,8 +310,8 @@ def report_from_slave_handler(client_id, data):
     Using when WORKER_TYPE is 'master' for receiving stats from slaves.
     """
     if locust_wrapper.is_started:
-        pass
-        locust_wrapper.push_event(data=data, event_type=WORKER_TYPE)
+        wrap_logger.info(data)
+        # locust_wrapper.push_event(data=data, event_type=WORKER_TYPE)
 
 
 def save_to_database(stats):
@@ -343,13 +343,3 @@ if WORKER_TYPE == 'master':
     wrap_events.slave_report += report_from_slave_handler  # catch stats from slaves
     wrap_events.master_start_hatching += start_handler  # start testing (master)
     wrap_events.quitting += quitting_handler  # stop testing (master)
-elif WORKER_TYPE == 'slave':
-    pass  # slave need just for sending stats to master
-else:
-    # handlers for common testing (without master/slave)
-    database_save_event = wrap_events.EventHook()
-    database_save_event += save_to_database
-    wrap_events.locust_start_hatching += start_handler
-    wrap_events.request_success += success_handler
-    wrap_events.request_failure += failure_handler
-    wrap_events.quitting += quitting_handler
