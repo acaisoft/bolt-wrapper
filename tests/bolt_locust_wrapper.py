@@ -337,14 +337,17 @@ def save_to_database(stats):
 
 
 if WORKER_TYPE == 'master':
+    wrap_logger.info('MASTER IF ................')
     database_save_event = wrap_events.EventHook()
     database_save_event += save_to_database
     wrap_events.slave_report += report_from_slave_handler  # catch stats from slaves
     wrap_events.master_start_hatching += start_handler  # start testing (master)
     wrap_events.quitting += quitting_handler  # stop testing (master)
 elif WORKER_TYPE == 'slave':
+    wrap_logger.info('SLAVE IF ................')
     pass  # slave need just for sending stats to master
 else:
+    wrap_logger.info('ELSE ................')
     # handlers for common testing (without master/slave)
     database_save_event = wrap_events.EventHook()
     database_save_event += save_to_database
