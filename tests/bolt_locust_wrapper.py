@@ -198,7 +198,7 @@ class LocustWrapper(object):
         # extracting errors for common cases (when WORKER_TYPE is not 'master' or 'slave')
         if event_type == 'failure':
             combined_key = '{0}/{1}/{2}'.format(data['request_type'], data['endpoint'], data['exception'])
-            combined_key = wrap_re.sub(r' object at 0x\S*', '', combined_key)  # delete trash (obj address) from key
+            # combined_key = wrap_re.sub(r' object at 0x\S*', '', combined_key)  # delete trash (obj address) from key
             try:
                 error = self.errors[combined_key]
                 error['number_of_occurrences'] = error['number_of_occurrences'] + 1
@@ -212,7 +212,7 @@ class LocustWrapper(object):
         elif event_type == 'master' and 'errors' in data.keys() and data['errors']:
             for error in data['errors'].values():
                 combined_key = '{0}/{1}/{2}'.format(error['method'], error['name'], error['error'])
-                combined_key = wrap_re.sub(r' object at 0x\S*', '', combined_key)  # delete trash (obj address) from key
+                # combined_key = wrap_re.sub(r' object at 0x\S*', '', combined_key)  # delete trash (obj address) from key
                 try:
                     _error = self.errors[combined_key]
                     _error['number_of_occurrences'] += error['occurences']
