@@ -270,9 +270,6 @@ def quitting_handler():
         locust_wrapper.end_execution = wrap_datetime.datetime.now()
         execution_update_data = {'end_locust': locust_wrapper.end_execution.isoformat()}
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
-        if int(locust_wrapper.end_execution.timestamp()) not in locust_wrapper.dataset_timestamps:
-            locust_wrapper.dataset.append({locust_wrapper.end_execution.timestamp(): []})
-            locust_wrapper.dataset_timestamps.append(int(locust_wrapper.end_execution.timestamp()))
         # save remaining data from 'dataset' list
         locust_wrapper.save_stats(send_all=True)
         sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
