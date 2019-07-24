@@ -297,7 +297,7 @@ def start_handler():
         locust_wrapper.bolt_api_client.insert_execution_instance({'status': 'READY', 'instance_type': 'load_tests'})
         locust_wrapper.bolt_api_client.insert_execution_stage_log({
             'execution_id': EXECUTION_ID,
-            'timestamp': wrap_datetime.datetime.now(),
+            'timestamp': wrap_datetime.datetime.now().isoformat(),
             'stage': 'load_tests',
             'msg': 'RUNNING',
             'level': 'info'

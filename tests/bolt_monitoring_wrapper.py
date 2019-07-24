@@ -186,7 +186,7 @@ def main(**kwargs):
             stop_during_test_func = run_during_test()
             bolt_api_client.insert_execution_stage_log({
                 'execution_id': EXECUTION_ID,
-                'timestamp': datetime.datetime.now(),
+                'timestamp': datetime.datetime.now().isoformat(),
                 'stage': 'monitoring',
                 'msg': 'RUNNING',
                 'level': 'info'
@@ -198,7 +198,7 @@ def main(**kwargs):
                 stop_during_test_func = run_during_test()
                 bolt_api_client.insert_execution_stage_log({
                     'execution_id': EXECUTION_ID,
-                    'timestamp': datetime.datetime.now(),
+                    'timestamp': datetime.datetime.now().isoformat(),
                     'stage': 'monitoring',
                     'msg': 'RUNNING',
                     'level': 'info'
