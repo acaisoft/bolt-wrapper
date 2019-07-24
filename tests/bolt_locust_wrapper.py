@@ -295,13 +295,6 @@ def start_handler():
         wrap_logger.info('Begin start handler')
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
         locust_wrapper.bolt_api_client.insert_execution_instance({'status': 'READY', 'instance_type': 'load_tests'})
-        locust_wrapper.bolt_api_client.insert_execution_stage_log({
-            'execution_id': EXECUTION_ID,
-            'timestamp': wrap_datetime.datetime.now().isoformat(),
-            'stage': 'load_tests',
-            'msg': 'RUNNING',
-            'level': 'info'
-        })
         locust_wrapper.start_execution = wrap_datetime.datetime.now()
         execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat()}
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)

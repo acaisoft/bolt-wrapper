@@ -184,25 +184,11 @@ def main(**kwargs):
         if not has_load_tests:
             bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'MONITORING'})
             stop_during_test_func = run_during_test()
-            bolt_api_client.insert_execution_stage_log({
-                'execution_id': EXECUTION_ID,
-                'timestamp': datetime.datetime.now().isoformat(),
-                'stage': 'monitoring',
-                'msg': 'RUNNING',
-                'level': 'info'
-            })
             run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
         else:
             load_tests_started = waiting_start_load_tests()
             if load_tests_started:
                 stop_during_test_func = run_during_test()
-                bolt_api_client.insert_execution_stage_log({
-                    'execution_id': EXECUTION_ID,
-                    'timestamp': datetime.datetime.now().isoformat(),
-                    'stage': 'monitoring',
-                    'msg': 'RUNNING',
-                    'level': 'info'
-                })
                 run_monitoring(has_load_tests, deadline, interval, stop_during_test_func)
             else:
                 logger.info('Load test didnt start. The monitoring did not run')
