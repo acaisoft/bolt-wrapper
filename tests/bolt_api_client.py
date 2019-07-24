@@ -297,3 +297,16 @@ class BoltAPIClient(object):
         ''')
         result = self.gql_client.execute(query, variable_values={'data': data})
         return result
+
+    @log_time_execution(logger)
+    def insert_execution_stage_log(self, data):
+        query = '''
+            mutation ($data: execution_stage_log_insert_input!) {
+                insert_execution_stage_log (objects: [$data]){
+                    affected_rows
+                }
+            }
+        '''
+        result = self.gql_client.execute(query, variable_values={'data': data})
+        return result
+
