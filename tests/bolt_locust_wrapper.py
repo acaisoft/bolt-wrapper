@@ -142,8 +142,9 @@ class LocustWrapper(object):
                 errors.extend(list(el['errors'].values()))
         stats['execution_id'] = self.execution
         stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
-        stats['number_of_successes'] = number_of_requests - number_of_failures
-        stats['number_of_fails'] = number_of_failures
+        # TODO magic / 3  !!!
+        stats['number_of_successes'] = int(float(number_of_requests - number_of_failures) / 3)
+        stats['number_of_fails'] = int(float(number_of_failures) / 3)
         number_of_users = wrap_runners.locust_runner.user_count
         if number_of_users == 0 and len(self.users):
             number_of_users = int(sum(self.users) / len(self.users) * 0.60)
