@@ -9,9 +9,9 @@ FROM base as builder
 
 # install wrapper/locust requirements
 COPY requirements.bolt.txt /home/bolt/requirements.bolt.txt
-COPY local_packages/bolt-locust-clients-0.1.tar.gz /home/bolt
+COPY local_packages/bolt-locust-clients-0.2.tar.gz /home/bolt
 RUN pip install -r /home/bolt/requirements.bolt.txt
-RUN pip install /home/bolt/bolt-locust-clients-0.1.tar.gz
+RUN pip install /home/bolt/bolt-locust-clients-0.2.tar.gz
 FROM builder
 
 WORKDIR /home/bolt/tests
