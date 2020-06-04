@@ -1,6 +1,6 @@
 FROM python:3.7-alpine as base
 
-RUN apk add --no-cache -U zeromq-dev postgresql-libs git gcc g++ musl-dev postgresql-dev curl libnfs-dev nfs-utils
+RUN apk add --no-cache -U zeromq-dev postgresql-libs git gcc g++ musl-dev postgresql-dev curl libnfs-dev nfs-utils libffi-dev
 RUN addgroup -S bolt
 RUN adduser -D -S bolt -G bolt
 RUN chown -R bolt:bolt /home/bolt/
