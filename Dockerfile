@@ -1,8 +1,17 @@
-FROM python:3.7-alpine as base
+FROM python:3.7-slim as base
 
-RUN apk add --no-cache -U zeromq-dev postgresql-libs git gcc g++ musl-dev postgresql-dev curl libnfs-dev nfs-utils
-RUN addgroup -S bolt
-RUN adduser -D -S bolt -G bolt
+RUN apt-get update -y
+
+RUN ln -fs /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+RUN export DEBIAN_FRONTEND=noninteractive
+RUN apt-get install -y tzdata
+RUN apt-get install -y libzmq3-dev
+
+RUN apt-get install -y python-dev build-essential python3-pip libtool pkg-config autoconf automake gcc g++ musl-dev postgresql postgresql-contrib curl libnfs-dev libffi-dev libevent-dev
+
+RUN addgroup bolt
+RUN adduser --system bolt
+RUN adduser bolt bolt
 RUN chown -R bolt:bolt /home/bolt/
 
 FROM base as builder
