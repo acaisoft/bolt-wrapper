@@ -7,7 +7,7 @@ RUN export DEBIAN_FRONTEND=noninteractive
 RUN apt-get install -y tzdata
 RUN apt-get install -y libzmq3-dev
 
-RUN apt-get install -y python-dev build-essential python3-pip libtool pkg-config autoconf automake gcc g++ musl-dev postgresql postgresql-contrib curl libnfs-dev libffi-dev libevent-dev
+RUN apt-get install -y python-dev build-essential python3-pip libtool pkg-config autoconf automake gcc g++ musl-dev postgresql postgresql-contrib curl libnfs-dev libffi-dev libevent-dev git
 
 RUN addgroup bolt
 RUN adduser --system bolt
