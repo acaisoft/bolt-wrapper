@@ -285,6 +285,7 @@ def quitting_handler():
             _, value = error_item
             locust_wrapper.bolt_api_client.insert_error_results(value)
         locust_wrapper.is_finished = True
+        locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
         wrap_logger.info('End quiting handler')
 
 
