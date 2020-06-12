@@ -12,6 +12,7 @@ import locust.stats as wrap_locust_stats
 from gevent import GreenletExit
 from locust import events as wrap_events, runners as wrap_runners
 
+from bolt_enums import Status
 from bolt_logger import setup_custom_logger as wrap_setup_custom_logger
 from bolt_api_client import BoltAPIClient as WrapBoltAPIClient
 
@@ -285,7 +286,16 @@ def quitting_handler():
             _, value = error_item
             locust_wrapper.bolt_api_client.insert_error_results(value)
         locust_wrapper.is_finished = True
-        locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
+        # This is a temporary hotfix - status setting should be done somewhere else
+        locust_wrapper.bolt_api_client.update_execution(
+            execution_id=EXECUTION_ID, data={'status': Status.RUNNING.value}
+        )
+        locust_wrapper.bolt_api_client.update_execution(
+            execution_id=EXECUTION_ID, data={'status': Status.SUCCEEDED.value}
+        )
+        locust_wrapper.bolt_api_client.update_execution(
+            execution_id=EXECUTION_ID, data={'status': Status.FINISHED.value}
+        )
         wrap_logger.info('End quiting handler')
 
 
