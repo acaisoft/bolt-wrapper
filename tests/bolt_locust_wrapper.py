@@ -339,8 +339,14 @@ def save_to_database(stats):
 
 
 if WORKER_TYPE == 'master':
+    print('DEBUG: dbg_start_master')
     database_save_event = wrap_events.EventHook()
+    print('DEBUG: dbg_event_hook_created')
     database_save_event += save_to_database
+    print('DEBUG: dbg_save_to_database')
     wrap_events.slave_report += report_from_slave_handler  # catch stats from slaves
+    print('DEBUG: dbg_add_slave_report')
     wrap_events.master_start_hatching += start_handler  # start testing (master)
+    print('DEBUG: dbg_start_testing (master)')
     wrap_events.quitting += quitting_handler  # stop testing (master)
+    print('DEBUG: dbg_stop_testing (master)')
