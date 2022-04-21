@@ -164,7 +164,6 @@ class BoltAPIClient(object):
                 $requests:[execution_requests_insert_input!]!, 
                 $distributions:[execution_distribution_insert_input!]!,
                 $errors:[execution_errors_insert_input!]!,
-                $execution_id: uuid, 
                 $timestamp: timestamptz, 
                 $number_of_successes: Int, 
                 $number_of_fails: Int, 
@@ -187,6 +186,7 @@ class BoltAPIClient(object):
                 }]) { affected_rows }
             }
         ''')
+        del stats["execution_id"]
         result = self.gql_client.execute(query, variable_values=stats)
         return result
 
@@ -215,18 +215,18 @@ class BoltAPIClient(object):
     def insert_error_results(self, errors):
         query = gql('''
             mutation (
-                $execution_id: uuid, 
                 $name: String, 
                 $error_type: String, 
                 $exception_data: String, 
                 $number_of_occurrences: Int){
-                    insert_result_error (objects: [{ 
+                    insert_result_error (objects: [{
                         name: $name, 
                         error_type: $error_type, 
                         exception_data: $exception_data, 
                         number_of_occurrences: $number_of_occurrences}]){
                 affected_rows }}
         ''')
+        del errors["execution_id"]
         result = self.gql_client.execute(query, variable_values=errors)
         return result
 
