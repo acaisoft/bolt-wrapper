@@ -69,7 +69,7 @@ def _import_and_run(module_name, func_name='main', **kwargs):
             logger.exception(f'Caught exception during execution monitoring | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         except MonitoringWaitingExpired as ex:
-            logger.exception(f'Caught monitoring exception during waiting load tests | {ex}')
+            logger.exception(f'Monitoring timed out while waiting for load tests | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         except Exception as ex:
             logger.exception(f'Caught unknown exception during execution | {ex}')
@@ -86,7 +86,7 @@ class Runner(object):
         try:
             configuration = data['execution'][0]['configuration']
         except LookupError as ex:
-            logger.exception(f'Error during extracting environments from configuration | {ex}')
+            logger.exception(f'Error while extracting environment from configuration | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             for envs in configuration.get('configuration_envvars', []):
@@ -98,7 +98,7 @@ class Runner(object):
         try:
             configuration = data['execution'][0]['configuration']
         except LookupError as ex:
-            logger.exception(f'Error during setting environments for load tests | {ex}')
+            logger.exception(f'Error while setting environment for load tests | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             if configuration['test_source']['source_type'] not in ('repository', 'test_creator'):
@@ -110,7 +110,7 @@ class Runner(object):
                 try:
                     test_creator = configuration['test_source']['test_creator']
                 except LookupError as ex:
-                    logger.exception(f'Error during getting data for Test Creator | {ex}')
+                    logger.exception(f'Error while getting data for Test Creator | {ex}')
                     _exit_with_status(EXIT_STATUS_ERROR)
                     return
                 os.environ['BOLT_LOCUSTFILE_NAME'] = 'locustfile_generic'
@@ -123,10 +123,10 @@ class Runner(object):
                     elif isinstance(test_creator_data, str):
                         os.environ['BOLT_TEST_CREATOR_DATA'] = test_creator_data
                     else:
-                        logger.info(f'Found unknown type for test_creator_data: {type(test_creator_data)}')
+                        logger.info(f'Unknown type of test_creator_data: {type(test_creator_data)}')
                         _exit_with_status(EXIT_STATUS_ERROR)
                 else:
-                    logger.info(f'Cannot get data for test creator. Test creator data is {test_creator_data}')
+                    logger.info(f'Cannot get data for Test Creator. Test Creator data is {test_creator_data}')
                     _exit_with_status(EXIT_STATUS_ERROR)
             else:
                 logger.info(f'Cannot find locustile name for execution {EXECUTION_ID}')
@@ -137,7 +137,7 @@ class Runner(object):
         try:
             configuration = data['execution'][0]['configuration']
         except LookupError as ex:
-            logger.exception(f'Error during checking that configuration has load tests | {ex}')
+            logger.exception(f'Error checking if configuration has load tests | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             return configuration['has_load_tests']
@@ -163,6 +163,9 @@ class Runner(object):
     def get_load_tests_arguments(data, extra_arguments, is_master):
         argv = sys.argv or []
         # delete `load_tests` argument from list of argv's
+        for e in data['execution'][0]['configuration']['configuration_parameters']:
+            if e['parameter']['param_name'] == '-c':
+                e['parameter']['param_name'] = '-u'
         try:
             argv.remove('load_tests')
         except ValueError:
@@ -183,7 +186,7 @@ class Runner(object):
                     parameter_slug = p['parameter_slug']
                     if parameter_slug.startswith('load_tests_'):
                         argv.extend([p['parameter']['param_name'], p['value']])
-                argv.extend(['--no-web'])
+                argv.extend(['--headless'])
                 argv.extend(['--csv=test_report'])
             if extra_arguments is not None:
                 argv.extend(extra_arguments)
@@ -197,7 +200,7 @@ class Runner(object):
         try:
             scenario = sys.argv[1]
         except IndexError:
-            logger.exception(f'Scenario type does not found. Args {sys.argv}')
+            logger.exception(f'Scenario type not found. Args {sys.argv}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             logger.info(f'Trying to detect scenario from arguments {sys.argv}')
@@ -219,20 +222,20 @@ class Runner(object):
             logger.info(f'Slave detected.')
             return False, True  # is slave
         else:
-            logger.info('Master/slave does not found.')
+            logger.info('Master/slave not found.')
             return False, False  # unknown
 
     def prepare_master_arguments(self, expect_slaves):
         logger.info(f'Start preparing arguments for master.')
         bolt_api_client.insert_execution_instance({
-            'status': 'READY', 'instance_type': WORKER_TYPE, 'expect_slaves': expect_slaves})
-        return ['--master', f'--expect-slaves={expect_slaves}']  # additional arguments for master
+            'status': 'READY', 'instance_type': WORKER_TYPE, 'expect-workers': expect_slaves})
+        return ['--master', f'--expect-workers={expect_slaves}']  # additional arguments for master
 
     def prepare_slave_arguments(self):
         logger.info(f'Start preparing arguments for slave.')
         bolt_api_client.insert_execution_instance({
             'host': MASTER_HOST, 'port': 5557, 'status': 'READY', 'instance_type': WORKER_TYPE})
-        return ['--slave', f'--master-host={MASTER_HOST}']  # additional arguments for slave
+        return ['--worker', f'--master-host={MASTER_HOST}']  # additional arguments for slave
 
     @staticmethod
     def flow_was_terminated_or_failed(execution_data):
@@ -247,11 +250,13 @@ class Runner(object):
 def main():
     runner = Runner()
     supervisor = Supervisor()
+    logger.info('ARGS')
+    logger.info(sys.argv)
     scenario_type = runner.scenario_detector()
     execution_data = bolt_api_client.get_execution(execution_id=EXECUTION_ID)
     # if flow terminated we should exit from container as success (without retries)
     if runner.flow_was_terminated_or_failed(execution_data):
-        _exit_with_status(status=EXIT_STATUS_SUCCESS, reason='Flow was terminated or failed')
+        _exit_with_status(status=EXIT_STATUS_SUCCESS, reason='Flow failed or has been terminated')
     runner.set_configuration_environments(execution_data)
     if scenario_type == 'pre_start':
         _import_and_run('bolt_flow.pre_start')

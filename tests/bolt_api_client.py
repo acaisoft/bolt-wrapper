@@ -30,7 +30,6 @@ class BoltAPIClient(object):
 
     def __init__(self, no_keep_alive=False):
         self.gql_client = Client(
-            retries=5,
             transport=WrappedTransport(
                 no_keep_alive=no_keep_alive,
                 url=GRAPHQL_URL,
@@ -78,8 +77,8 @@ class BoltAPIClient(object):
                 }
             }
         ''')
-        result = self.gql_client.execute(query, variable_values={'execution_id': execution_id})
-        return result
+        result = self.gql_client.transport.execute(query, variable_values={'execution_id': execution_id})
+        return result.formatted["data"]
 
     @log_time_execution(logger)
     def update_execution(self, execution_id, data):
@@ -91,7 +90,7 @@ class BoltAPIClient(object):
             }
         ''')
         variable_values = {'execution_id': execution_id, 'data': data}
-        result = self.gql_client.execute(query, variable_values=variable_values)
+        result = self.gql_client.transport.execute(query, variable_values=variable_values)
         return result
 
     @log_time_execution(logger)
@@ -187,7 +186,7 @@ class BoltAPIClient(object):
             }
         ''')
         del stats["execution_id"]
-        result = self.gql_client.execute(query, variable_values=stats)
+        result = self.gql_client.transport.execute(query, variable_values=stats)
         return result
 
     @log_time_execution(logger)
@@ -208,7 +207,7 @@ class BoltAPIClient(object):
                 }]){ affected_rows }
             } 
         ''')
-        result = self.gql_client.execute(query, variable_values=test_report)
+        result = self.gql_client.transport.execute(query, variable_values=test_report)
         return result
 
     @log_time_execution(logger)
@@ -227,7 +226,7 @@ class BoltAPIClient(object):
                 affected_rows }}
         ''')
         del errors["execution_id"]
-        result = self.gql_client.execute(query, variable_values=errors)
+        result = self.gql_client.transport.execute(query, variable_values=errors)
         return result
 
     @log_time_execution(logger)
@@ -247,7 +246,7 @@ class BoltAPIClient(object):
             }
         ''')
         variable_values = {'execution_id': execution_id, 'instance_type': instance_type}
-        result = self.gql_client.execute(query, variable_values=variable_values)
+        result = self.gql_client.transport.execute(query, variable_values=variable_values)
         return result
 
     @log_time_execution(logger)
@@ -269,7 +268,7 @@ class BoltAPIClient(object):
                 }
             }
         ''')
-        result = self.gql_client.execute(query, variable_values={'data': data})
+        result = self.gql_client.transport.execute(query, variable_values={'data': data})
         return result
 
     @log_time_execution(logger)
@@ -283,7 +282,7 @@ class BoltAPIClient(object):
             }
         ''')
         variable_values = {'execution_id': execution_id, 'instance_type': instance_type, 'data': data}
-        result = self.gql_client.execute(query, variable_values=variable_values)
+        result = self.gql_client.transport.execute(query, variable_values=variable_values)
         return result
 
     @log_time_execution(logger)
@@ -295,18 +294,18 @@ class BoltAPIClient(object):
                 }
             }
         ''')
-        result = self.gql_client.execute(query, variable_values={'data': data})
+        result = self.gql_client.transport.execute(query, variable_values={'data': data})
         return result
 
     @log_time_execution(logger)
     def insert_execution_stage_log(self, data):
-        query = '''
+        query = gql('''
             mutation ($data: execution_stage_log_insert_input!) {
                 insert_execution_stage_log (objects: [$data]){
                     affected_rows
                 }
             }
-        '''
-        result = self.gql_client.execute(query, variable_values={'data': data})
+        ''')
+        result = self.gql_client.transport.execute(query, variable_values={'data': data})
         return result
 

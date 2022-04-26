@@ -1,4 +1,4 @@
-FROM python:3.7-slim as base
+FROM python:3.10.4-alpine3.15 as base
 
 RUN apt-get update -y
 

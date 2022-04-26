@@ -1,7 +1,6 @@
 """
-We have to wrap all imports for make sure
-that locustfile.py does not overwrite original imports from this file during test execution.
-For all imports we adding `wrap_` prefix.
+We have to wrap all imports to make sure that locustfile.py does not overwrite original imports from this file
+during test execution. For all imports we add `wrap_` prefix.
 """
 import os as wrap_os
 import re as wrap_re
@@ -10,7 +9,8 @@ import datetime as wrap_datetime
 import locust.stats as wrap_locust_stats
 
 from gevent import GreenletExit
-from locust import events as wrap_events, runners as wrap_runners
+from locust import events as wrap_events
+from locust.runners import MasterRunner
 
 from bolt_logger import setup_custom_logger as wrap_setup_custom_logger
 from bolt_api_client import BoltAPIClient as WrapBoltAPIClient
@@ -48,6 +48,7 @@ class LocustWrapper(object):
     end_execution: wrap_datetime.datetime = None
     is_started = False
     is_finished = False
+    environment = None
 
     def __init__(self):
         if WORKER_TYPE != 'slave':
@@ -87,7 +88,7 @@ class LocustWrapper(object):
         stats['number_of_successes'] = len([el for el in elements if el['event_type'] == 'success'])
         stats['number_of_fails'] = len([el for el in elements if el['event_type'] == 'failure'])
         stats['number_of_errors'] = len(set([el['exception'] for el in elements if bool(el['exception'])]))
-        number_of_users = wrap_runners.locust_runner.user_count
+        number_of_users = self.environment.runner.user_count
         if number_of_users == 0 and len(self.users):
             number_of_users = int(sum(self.users) / len(self.users) * 0.60)
         stats['number_of_users'] = number_of_users
@@ -96,7 +97,7 @@ class LocustWrapper(object):
         average_response_size = sum([el['response_length'] for el in elements]) / float(len(elements))
         stats['average_response_size'] = round(average_response_size, 2)
         self.stats.append(stats)
-        self.users.append(wrap_runners.locust_runner.user_count)
+        self.users.append(self.environment.runner.user_count)
         stats['error_details'] = self.errors
         return stats
 
@@ -145,7 +146,7 @@ class LocustWrapper(object):
         # TODO magic / 3  !!!
         stats['number_of_successes'] = int(float(number_of_requests - number_of_failures) / 3)
         stats['number_of_fails'] = int(float(number_of_failures) / 3)
-        number_of_users = wrap_runners.locust_runner.user_count
+        number_of_users = self.environment.runner.user_count
         if number_of_users == 0 and len(self.users):
             number_of_users = int(sum(self.users) / len(self.users) * 0.60)
         stats['number_of_users'] = number_of_users
@@ -165,7 +166,7 @@ class LocustWrapper(object):
             wrap_logger.info(f'{total_content_length} | {number_of_requests} | {ex}')
             stats['average_response_size'] = 0
         self.stats.append(stats)
-        self.users.append(wrap_runners.locust_runner.user_count)
+        self.users.append(self.environment.runner.user_count)
         stats['error_details'] = self.errors
         return stats
 
@@ -178,10 +179,10 @@ class LocustWrapper(object):
                 else:
                     stats = self.prepare_stats_by_interval_common(element)
                 if stats is not None:
-                    database_save_event.fire(stats=stats)
+                    save_to_database(stats)
             # send stats from queue if we lost connection during sending stats to database
             for stats in self.stats_queue:
-                database_save_event.fire(stats=stats)
+                save_to_database(stats)
         # send first element from list to database if length of list more than 2
         elif len(self.dataset) > 2:
             first_element = self.dataset.pop(0)
@@ -193,7 +194,7 @@ class LocustWrapper(object):
                 # add stats to queue for sending
                 self.stats_queue.append(stats)
                 # send as locust event
-                database_save_event.fire(stats=stats)
+                save_to_database(stats)
 
     def push_event(self, data, event_type):
         # extracting errors for common cases (when WORKER_TYPE is not 'master' or 'slave')
@@ -219,13 +220,20 @@ class LocustWrapper(object):
                     _error['number_of_occurrences'] += error['occurences']
                 except KeyError:
                     new_error = {combined_key: {
-                        'execution_id': self.execution, 'number_of_occurrences': error['occurences'],
+                        'execution_id': self.execution, 'number_of_occurrences': error['occurrences'],
                         'name': error['name'], 'error_type': error['method'], 'exception_data': error['error']
                     }}
                     self.errors.update(new_error)
         # push event to dataset for common cases
-        last_timestamp = list(self.dataset[-1].keys())[0]
         now_timestamp = wrap_time.time()
+        try:
+            last_timestamp = list(self.dataset[-1].keys())[0]
+        except IndexError:
+            last_timestamp = now_timestamp
+
+        if len(self.dataset) == 0:
+            self.dataset.append({last_timestamp: []})
+
         if int(now_timestamp) - int(last_timestamp) < SENDING_INTERVAL_IN_SECONDS:
             self.dataset[-1][last_timestamp].append(data)
         else:
@@ -238,35 +246,26 @@ class LocustWrapper(object):
 locust_wrapper = LocustWrapper()
 
 
-def success_handler(request_type, name, response_time, response_length):
-    """
-    Handler for catching successfully requests
-    """
-    received_data = {
-        'execution_id': locust_wrapper.execution, 'endpoint': name, 'exception': '', 'request_type': request_type,
-        'response_length': response_length, 'response_time': float(response_time), 'event_type': 'success',
-        'timestamp': int(wrap_time.time()),
-    }
-    locust_wrapper.push_event(received_data, event_type='success')
-
-
-def failure_handler(request_type, name, response_time, exception):
+@wrap_events.request.add_listener
+def request_handler(request_type, name, response_time, response_length, response, context, exception, start_time, url):
     """
     Handler for catching un-successfully requests
     """
+    event_type = 'failure' if exception is not None else 'success'
     received_data = {
         'execution_id': locust_wrapper.execution, 'endpoint': name, 'exception': str(exception),
-        'request_type': request_type, 'response_length': 0, 'response_time': float(response_time),
-        'event_type': 'failure', 'timestamp': int(wrap_time.time()),
+        'request_type': request_type, 'response_length': response_length, 'response_time': float(response_time),
+        'event_type': event_type, 'timestamp': int(wrap_time.time()),
     }
-    locust_wrapper.push_event(received_data, event_type='failure')
+    locust_wrapper.push_event(received_data, event_type=event_type)
 
 
-def quitting_handler():
+@wrap_events.quitting.add_listener
+def quitting_handler(environment):
     """
     Will be called before exiting test runner
     """
-    if not locust_wrapper.is_finished:
+    if not locust_wrapper.is_finished and WORKER_TYPE == 'master':
         wrap_logger.info('Begin quiting handler')
         locust_wrapper.end_execution = wrap_datetime.datetime.now()
         execution_update_data = {'end_locust': locust_wrapper.end_execution.isoformat()}
@@ -289,11 +288,13 @@ def quitting_handler():
         wrap_logger.info('End quiting handler')
 
 
-def start_handler():
+@wrap_events.init.add_listener
+def start_handler(environment, **kwargs):
     """
     Will be called before starting test runner
     """
-    if not locust_wrapper.is_started:
+    locust_wrapper.environment = environment
+    if not locust_wrapper.is_started and isinstance(environment.runner, MasterRunner):
         wrap_logger.info('Begin start handler')
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
         locust_wrapper.bolt_api_client.insert_execution_instance({'status': 'READY', 'instance_type': 'load_tests'})
@@ -307,22 +308,13 @@ def start_handler():
         wrap_logger.info('End start handler')
 
 
-def report_from_slave_handler(client_id, data):
-    """
-    Using when WORKER_TYPE is 'master' for receiving stats from slaves.
-    """
-    if locust_wrapper.is_started:
-        locust_wrapper.push_event(data=data, event_type=WORKER_TYPE)
-
-
-def save_to_database(stats):
+def save_to_database(data):
     """
     EventHook for sending aggregated results to database
     """
-    # TODO: it is hotfix, need to find why we getting None item inside 'stats'
-    if stats is not None and stats:
+    if data is not None and data and WORKER_TYPE == 'master':
         try:
-            locust_wrapper.bolt_api_client.insert_aggregated_results(stats)
+            locust_wrapper.bolt_api_client.insert_aggregated_results(data)
         except GreenletExit as ex:
             wrap_logger.info('SLEEP 20 sec')
             wrap_time.sleep(20)
@@ -330,17 +322,18 @@ def save_to_database(stats):
             raise
         except:
             # TODO: need to detect potential exception during saving
-            wrap_logger.exception('Failed to insert aggregated results results. Error ignored and execution continues.')
+            wrap_logger.exception('Failed to insert aggregated results. Error ignored and execution continues.')
             return
     try:
-        locust_wrapper.stats_queue.remove(stats)
+        locust_wrapper.stats_queue.remove(data)
     except ValueError:
         wrap_logger.info(f'Stats does not exist in queue {len(locust_wrapper.stats_queue)}')
 
 
-if WORKER_TYPE == 'master':
-    database_save_event = wrap_events.EventHook()
-    database_save_event += save_to_database
-    wrap_events.slave_report += report_from_slave_handler  # catch stats from slaves
-    wrap_events.master_start_hatching += start_handler  # start testing (master)
-    wrap_events.quitting += quitting_handler  # stop testing (master)
+@wrap_events.worker_report.add_listener
+def report_from_slave_handler(client_id, data):
+    """
+    Using when WORKER_TYPE is 'master' for receiving stats from slaves.
+    """
+    if locust_wrapper.is_started and WORKER_TYPE == 'master':
+        locust_wrapper.push_event(data=data, event_type=WORKER_TYPE)
