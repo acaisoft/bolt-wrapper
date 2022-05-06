@@ -43,6 +43,10 @@ SCENARIO_TYPE: str
 no_keep_alive = True if WORKER_TYPE == 'slave' else False
 bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
 
+IGNORED_ARGS = [
+    'load_tests_repository_branch'
+]
+
 
 def _exit_with_status(status, reason=None):
     logger.info(f'Exit with status {status}. For execution_id {EXECUTION_ID}')
@@ -184,7 +188,7 @@ class Runner(object):
             if is_master:
                 for p in parameters:
                     parameter_slug = p['parameter_slug']
-                    if parameter_slug.startswith('load_tests_'):
+                    if parameter_slug.startswith('load_tests_') and parameter_slug not in IGNORED_ARGS:
                         argv.extend([p['parameter']['param_name'], p['value']])
                 argv.extend(['--headless'])
                 argv.extend(['--csv=test_report'])
