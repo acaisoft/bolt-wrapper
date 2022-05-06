@@ -1,6 +1,6 @@
-FROM python:3.10.4-alpine3.15 as base
+FROM python:3.10.4-slim-buster as base
 
-RUN apt-get update -y
+RUN apt update -y
 
 RUN ln -fs /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
 RUN export DEBIAN_FRONTEND=noninteractive
@@ -18,9 +18,9 @@ FROM base as builder
 
 # install wrapper/locust requirements
 COPY requirements.bolt.txt /home/bolt/requirements.bolt.txt
-COPY local_packages/bolt-locust-clients-0.2.tar.gz /home/bolt
+# COPY local_packages/bolt-locust-clients-0.2.tar.gz /home/bolt
 RUN pip install -r /home/bolt/requirements.bolt.txt
-RUN pip install /home/bolt/bolt-locust-clients-0.2.tar.gz
+# RUN pip install /home/bolt/bolt-locust-clients-0.2.tar.gz
 FROM builder
 
 WORKDIR /home/bolt/tests
