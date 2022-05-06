@@ -188,6 +188,7 @@ class Runner(object):
             if is_master:
                 for p in parameters:
                     parameter_slug = p['parameter_slug']
+                    logger.info(parameter_slug in IGNORED_ARGS)
                     if parameter_slug.startswith('load_tests_') and parameter_slug not in IGNORED_ARGS:
                         argv.extend([p['parameter']['param_name'], p['value']])
                 argv.extend(['--headless'])
