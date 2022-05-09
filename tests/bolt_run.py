@@ -170,6 +170,8 @@ class Runner(object):
         for e in data['execution'][0]['configuration']['configuration_parameters']:
             if e['parameter']['param_name'] == '-c':
                 e['parameter']['param_name'] = '-u'
+            if e['parameter']['param_name'] == '-b':
+                del e
         try:
             argv.remove('load_tests')
         except ValueError:
