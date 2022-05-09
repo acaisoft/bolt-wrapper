@@ -171,6 +171,7 @@ class Runner(object):
             if e['parameter']['param_name'] == '-c':
                 e['parameter']['param_name'] = '-u'
             if e['parameter']['param_name'] == '-b':
+                logger.info('Removed branch argument')
                 del e
         try:
             argv.remove('load_tests')
