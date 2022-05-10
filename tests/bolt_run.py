@@ -44,7 +44,8 @@ no_keep_alive = True if WORKER_TYPE == 'slave' else False
 bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
 
 IGNORED_ARGS = [
-    'load_tests_repository_branch'
+    'load_tests_repository_branch',
+    'load_tests_file_path'
 ]
 
 
@@ -170,9 +171,6 @@ class Runner(object):
         for e in data['execution'][0]['configuration']['configuration_parameters']:
             if e['parameter']['param_name'] == '-c':
                 e['parameter']['param_name'] = '-u'
-            if e['parameter']['param_name'] == '-b':
-                logger.info('Removed branch argument')
-                del e
         try:
             argv.remove('load_tests')
         except ValueError:
@@ -191,7 +189,6 @@ class Runner(object):
             if is_master:
                 for p in parameters:
                     parameter_slug = p['parameter_slug']
-                    logger.info(parameter_slug in IGNORED_ARGS)
                     if parameter_slug.startswith('load_tests_') and parameter_slug not in IGNORED_ARGS:
                         argv.extend([p['parameter']['param_name'], p['value']])
                 argv.extend(['--headless'])
