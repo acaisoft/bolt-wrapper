@@ -99,32 +99,9 @@ class BoltAPIClient(object):
         stats['requests'] = []
         stats['distributions'] = []
 
-        # open report with requests and save to db
-        if os.path.exists('test_report_requests.csv'):
-            with open('test_report_requests.csv') as f:
-                for r in csv.DictReader(f):
-                    if not (r["Name"] == "Total" and r["Method"] == "None"):
-                        req_id = identifier([r['Method'], r['Name']])
-                        stats['requests'].append({
-                            'timestamp': ts,
-                            'identifier': req_id,
-                            'method': r['Method'],
-                            'name': r['Name'],
-                            'num_requests': r['# requests'],
-                            'num_failures': r['# failures'],
-                            'median_response_time': r['Median response time'],
-                            'average_response_time': r['Average response time'],
-                            'min_response_time': r['Min response time'],
-                            'max_response_time': r['Max response time'],
-                            'average_content_size': r['Average Content Size'],
-                            'requests_per_second': r['Requests/s'],
-                        })
-        else:
-            logger.warn('no requests file')
-
         # open report with distributions and save to variable
-        if os.path.exists('test_report_distribution.csv'):
-            with open('test_report_distribution.csv') as f:
+        if os.path.exists('test_report_stats.csv'):
+            with open('test_report_stats.csv') as f:
                 for r in csv.DictReader(f):
                     if not r["Name"] == "Total":
                         stats['distributions'].append({
@@ -132,7 +109,7 @@ class BoltAPIClient(object):
                             'identifier': identifier([r['Name']]),
                             'method': r['Name'].split()[0],
                             'name': ' '.join(r['Name'].split()[1:]),
-                            'num_requests': r['# requests'],
+                            'num_requests': r['Request Count'],
                             'p50': r['50%'],
                             'p66': r['66%'],
                             'p75': r['75%'],
@@ -143,8 +120,24 @@ class BoltAPIClient(object):
                             'p99': r['99%'],
                             'p100': r['100%'],
                         })
+                        if r["Type"] != "":
+                            req_id = identifier([r['Type'], r['Name']])
+                            stats['requests'].append({
+                                'timestamp': ts,
+                                'identifier': req_id,
+                                'method': r['Type'],
+                                'name': r['Name'],
+                                'num_requests': r['Request Count'],
+                                'num_failures': r['Failure Count'],
+                                'median_response_time': r['Median Response Time'],
+                                'average_response_time': r['Average Response Time'],
+                                'min_response_time': r['Min Response Time'],
+                                'max_response_time': r['Max Response Time'],
+                                'average_content_size': r['Average Content Size'],
+                                'requests_per_second': r['Requests/s'],
+                            })
         else:
-            logger.warn('no distributions file')
+            logger.warn('no stats file')
 
         stats['errors'] = []
         for ed in stats.pop('error_details', {}).values():
