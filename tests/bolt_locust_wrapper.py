@@ -29,6 +29,7 @@ LOCUSTFILE_NAME = wrap_os.getenv('BOLT_LOCUSTFILE_NAME')
 
 wrap_locust_stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
 wrap_logger = wrap_setup_custom_logger(__name__)
+wrap_logger.propagate = False
 
 # dynamically import source code from locustfile with tests
 exec(f'from {LOCUSTFILE_NAME} import *')
