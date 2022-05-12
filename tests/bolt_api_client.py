@@ -103,12 +103,13 @@ class BoltAPIClient(object):
         if os.path.exists('test_report_stats.csv'):
             with open('test_report_stats.csv') as f:
                 for r in csv.DictReader(f):
-                    if not r["Name"] == "Total":
+                    if not r["Name"] == "Total" and r["Type"] != "":
+                        req_id = identifier([r['Type'], r['Name']])
                         stats['distributions'].append({
                             'timestamp': ts,
-                            'identifier': identifier([r['Name']]),
-                            'method': r['Name'].split()[0],
-                            'name': ' '.join(r['Name'].split()[1:]),
+                            'identifier': req_id,
+                            'method': r['Type'],
+                            'name': r['Name'],
                             'num_requests': r['Request Count'],
                             'p50': r['50%'],
                             'p66': r['66%'],
@@ -120,22 +121,20 @@ class BoltAPIClient(object):
                             'p99': r['99%'],
                             'p100': r['100%'],
                         })
-                        if r["Type"] != "":
-                            req_id = identifier([r['Type'], r['Name']])
-                            stats['requests'].append({
-                                'timestamp': ts,
-                                'identifier': req_id,
-                                'method': r['Type'],
-                                'name': r['Name'],
-                                'num_requests': r['Request Count'],
-                                'num_failures': r['Failure Count'],
-                                'median_response_time': r['Median Response Time'],
-                                'average_response_time': r['Average Response Time'],
-                                'min_response_time': r['Min Response Time'],
-                                'max_response_time': r['Max Response Time'],
-                                'average_content_size': r['Average Content Size'],
-                                'requests_per_second': r['Requests/s'],
-                            })
+                        stats['requests'].append({
+                            'timestamp': ts,
+                            'identifier': req_id,
+                            'method': r['Type'],
+                            'name': r['Name'],
+                            'num_requests': r['Request Count'],
+                            'num_failures': r['Failure Count'],
+                            'median_response_time': r['Median Response Time'],
+                            'average_response_time': r['Average Response Time'],
+                            'min_response_time': r['Min Response Time'],
+                            'max_response_time': r['Max Response Time'],
+                            'average_content_size': r['Average Content Size'],
+                            'requests_per_second': r['Requests/s'],
+                        })
         else:
             logger.warn('no stats file')
 
@@ -178,7 +177,8 @@ class BoltAPIClient(object):
                 }]) { affected_rows }
             }
         ''')
-        del stats["execution_id"]
+        if 'execution_id' in stats:
+            del stats['execution_id']
         result = self.gql_client.transport.execute(query, variable_values=stats)
         return result
 
