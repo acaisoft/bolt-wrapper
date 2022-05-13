@@ -110,7 +110,16 @@ class Runner(object):
                 logger.info('Invalid source_type value')
                 _exit_with_status(EXIT_STATUS_ERROR)
             if configuration['test_source']['source_type'] == 'repository':
-                os.environ['BOLT_LOCUSTFILE_NAME'] = 'load_tests'
+                try:
+                    parameters = data['execution'][0]['configuration']['configuration_parameters']
+                    if not parameters:
+                        raise LookupError('No arguments for configurations')
+                    for p in parameters:
+                        if p['parameter_slug'] == 'load_tests_file_path':
+                            os.environ['BOLT_LOCUSTFILE_NAME'] = p['value'].split('.')[0]
+                except Exception as ex:
+                    logger.exception(f'Error during extracting locustfile name from execution parameters {ex}')
+                    _exit_with_status(EXIT_STATUS_ERROR)
             elif configuration['test_source']['source_type'] == 'test_creator':
                 try:
                     test_creator = configuration['test_source']['test_creator']
