@@ -45,7 +45,7 @@ bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
 
 IGNORED_ARGS = [
     'load_tests_repository_branch',
-    'load_tests_file_path'
+    'load_tests_file_name'
 ]
 
 
@@ -115,7 +115,7 @@ class Runner(object):
                     if not parameters:
                         raise LookupError('No arguments for configurations')
                     for p in parameters:
-                        if p['parameter_slug'] == 'load_tests_file_path':
+                        if p['parameter_slug'] == 'load_tests_file_name':
                             os.environ['BOLT_LOCUSTFILE_NAME'] = p['value'].split('.')[0]
                 except Exception as ex:
                     logger.exception(f'Error during extracting locustfile name from execution parameters {ex}')
