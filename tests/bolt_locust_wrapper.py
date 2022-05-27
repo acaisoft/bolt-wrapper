@@ -161,6 +161,8 @@ class LocustWrapper(object):
             total_content_length += el['stats_total']['total_content_length']
             if el['errors']:
                 errors.extend(list(el['errors'].values()))
+        if number_of_requests == 0:
+            return None
         stats['execution_id'] = self.execution
         stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
         # TODO magic / 3  !!!
@@ -269,7 +271,7 @@ locust_wrapper = LocustWrapper()
 @wrap_events.request.add_listener
 def request_handler(request_type, name, response_time, response_length, response, context, exception, start_time, url):
     """
-    Handler for catching un-successfully requests
+    Handler for catching unsuccessful requests
     """
     event_type = 'failure' if exception is not None else 'success'
     received_data = {
@@ -347,7 +349,7 @@ def save_to_database(data):
     try:
         locust_wrapper.stats_queue.remove(data)
     except ValueError:
-        wrap_logger.info(f'Stats does not exist in queue {len(locust_wrapper.stats_queue)}')
+        wrap_logger.info(f'Stats do not exist in queue {len(locust_wrapper.stats_queue)}')
 
 
 @wrap_events.worker_report.add_listener
