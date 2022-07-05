@@ -321,7 +321,7 @@ def start_handler(environment, **kwargs):
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
         locust_wrapper.bolt_api_client.insert_execution_instance({'status': 'READY', 'instance_type': 'load_tests'})
         locust_wrapper.start_execution = wrap_datetime.datetime.now()
-        execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat()}
+        execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat(), 'status': 'RUNNING'}
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
         if not locust_wrapper.dataset:
             locust_wrapper.dataset.append({locust_wrapper.start_execution.timestamp(): []})
