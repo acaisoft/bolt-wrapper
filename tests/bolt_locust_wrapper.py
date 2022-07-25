@@ -37,8 +37,6 @@ from bolt_api_client import BoltAPIClient as WrapBoltAPIClient
 # TODO: temporary solution for disabling warnings
 import urllib3
 
-from tests.bolt_enums import Status
-
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Envs
@@ -324,7 +322,7 @@ def start_handler(environment, **kwargs):
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
         locust_wrapper.bolt_api_client.insert_execution_instance({'status': 'READY', 'instance_type': 'load_tests'})
         locust_wrapper.start_execution = wrap_datetime.datetime.now()
-        execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat(), 'status': Status.RUNNING}
+        execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat(), 'status': 'RUNNING'}
         wrap_logger.info(f'Setting execution details to: {execution_update_data}')
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
         if not locust_wrapper.dataset:
