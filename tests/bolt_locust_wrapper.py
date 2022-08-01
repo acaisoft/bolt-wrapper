@@ -255,7 +255,7 @@ class LocustWrapper(object):
                 combined_key = wrap_re.sub(r' object at 0x\S*', '', combined_key)  # delete trash (obj address) from key
                 try:
                     _error = self.errors[combined_key]
-                    _error['number_of_occurrences'] += error['occurences']
+                    _error['number_of_occurrences'] = error['occurences']
                 except KeyError:
                     new_error = {combined_key: {
                         'execution_id': self.execution, 'number_of_occurrences': error['occurrences'],
