@@ -25,6 +25,8 @@ import os as wrap_os
 import re as wrap_re
 import time as wrap_time
 import datetime as wrap_datetime
+from statistics import median
+
 import locust.stats as wrap_locust_stats
 
 from gevent import GreenletExit
@@ -155,13 +157,26 @@ class LocustWrapper(object):
         number_of_failures = 0
         total_response_time = 0
         total_content_length = 0
+        request_per_seconds = 0
+        response_times = []
+        content_lengths = []
+        stats["requests"] = elements
         for el in elements:
             number_of_requests += el['stats_total']['num_requests']
             number_of_failures += el['stats_total']['num_failures']
             total_response_time += el['stats_total']['total_response_time']
+            response_times.append(el['stats_total']['total_response_time'])
             total_content_length += el['stats_total']['total_content_length']
+            content_lengths.append(el['stats_total']['total_content_length'])
+            num_reqs_per_sec = el['stats_total']['num_reqs_per_sec']
+            try:
+                request_per_seconds += sum(num_reqs_per_sec.values()) / len(num_reqs_per_sec)  # it will work only for single element
+            except ZeroDivisionError:
+                ...
             if el['errors']:
                 errors.extend(list(el['errors'].values()))
+        stats['median_response_time'] = median(response_times)
+        stats['requests_per_second'] = request_per_seconds
         if number_of_requests == 0:
             return None
         stats['execution_id'] = self.execution

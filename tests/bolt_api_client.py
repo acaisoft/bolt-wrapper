@@ -115,6 +115,7 @@ class BoltAPIClient(object):
     @log_time_execution(logger)
     def insert_aggregated_results(self, stats):
         ts = datetime.now().isoformat()
+        request_tick_stats = stats.pop("requests", {})
         stats['requests'] = []
         stats['distributions'] = []
 
@@ -140,22 +141,30 @@ class BoltAPIClient(object):
                             'p99': r['99%'],
                             'p100': r['100%'],
                         })
-                        stats['requests'].append({
-                            'timestamp': ts,
-                            'identifier': req_id,
-                            'method': r['Type'],
-                            'name': r['Name'],
-                            'num_requests': r['Request Count'],
-                            'num_failures': r['Failure Count'],
-                            'median_response_time': r['Median Response Time'],
-                            'average_response_time': r['Average Response Time'],
-                            'min_response_time': r['Min Response Time'],
-                            'max_response_time': r['Max Response Time'],
-                            'average_content_size': r['Average Content Size'],
-                            'requests_per_second': r['Requests/s'],
-                        })
         else:
             logger.warn('no stats file')
+
+        median_response_time = stats.pop("median_response_time", 0)
+        requests_per_second = stats.pop("requests_per_second", 0)
+
+        for request in request_tick_stats:
+            for endpoint in request["stats"]:
+                stats['requests'].append({
+                    'timestamp': ts,
+                    'identifier': req_id,
+                    'method': endpoint['method'],
+                    'name': endpoint['name'],
+                    'num_requests': endpoint['num_requests'],
+                    'num_failures': endpoint['num_failures'],
+                    'median_response_time': median_response_time,
+                    'average_response_time': stats['average_response_time'],
+                    'min_response_time': endpoint['min_response_time'],
+                    'max_response_time': endpoint['max_response_time'],
+                    'average_content_size': stats['average_response_size'],
+                    'requests_per_second': requests_per_second,
+                    'requests_per_tick': endpoint['num_requests'],
+                    'successes_per_tick': endpoint['num_requests'] - endpoint['num_failures'],
+                })
 
         stats['errors'] = []
         for ed in stats.pop('error_details', {}).values():
