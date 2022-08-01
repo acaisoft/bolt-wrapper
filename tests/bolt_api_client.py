@@ -149,6 +149,7 @@ class BoltAPIClient(object):
 
         for request in request_tick_stats:
             for endpoint in request["stats"]:
+                req_id = identifier([endpoint['method'], endpoint['name']])  # TODO it should be the same as in distribution
                 stats['requests'].append({
                     'timestamp': ts,
                     'identifier': req_id,
