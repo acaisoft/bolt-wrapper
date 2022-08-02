@@ -156,8 +156,9 @@ class LocustWrapper(object):
         number_of_requests = 0
         number_of_failures = 0
         number_of_none_requests = 0
-        number_of_request_per_second = {}
         user_count = 0
+        number_of_request_per_second = {}
+        response_times_per_endpoint = {}
         response_times = []
         content_lengths = []
         stats["requests"] = elements
@@ -168,26 +169,32 @@ class LocustWrapper(object):
             user_count += el['user_count']
             response_times.append(el['stats_total']['total_response_time'])
             content_lengths.append(el['stats_total']['total_content_length'])
-            number_of_request_per_second.update(el['stats_total']['num_reqs_per_sec'])
+            for endpoint in el["stats"]:
+                number_of_request_per_second[endpoint["name"]] = endpoint["num_reqs_per_sec"]
+                response_times_per_endpoint[endpoint["name"]] = endpoint["response_times"]
             if el['errors']:
                 errors.extend(list(el['errors'].values()))
         if number_of_requests == 0:
             return None
-        try:
-            request_per_seconds = sum(number_of_request_per_second.values()) / len(number_of_request_per_second)
-        except ZeroDivisionError:
-            request_per_seconds = 0
         stats['execution_id'] = self.execution
         stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
-        stats['number_of_successes'] = number_of_requests - number_of_failures - number_of_none_requests
+        stats['number_of_successes'] = number_of_requests - (number_of_failures + number_of_none_requests)
         stats['number_of_fails'] = number_of_failures
-        stats['median_response_time'] = median(response_times)
-        stats['requests_per_second'] = request_per_seconds
+        stats['median_response_time_per_endpoint'] = {
+            key: median([key * value for key, value in value.items()])
+            for key, value in response_times_per_endpoint.items()
+        }
+        if number_of_request_per_second:
+            stats['avg_req_per_sec_per_endpoint'] = {
+                key: sum(value.values()) / len(number_of_request_per_second)
+                for key, value in number_of_request_per_second.items()
+            }
 
         number_of_users = self.environment.runner.user_count
-        if number_of_users == 0 and len(self.users):
+        if number_of_users == 0 and user_count > 0:
             number_of_users = user_count
         stats['number_of_users'] = number_of_users
+
         number_of_errors = len(set(
             ['{0}/{1}/{2}'.format(error['method'], error['name'], error['error']) for error in errors]))
         stats['number_of_errors'] = number_of_errors

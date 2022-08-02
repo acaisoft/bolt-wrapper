@@ -144,12 +144,13 @@ class BoltAPIClient(object):
         else:
             logger.warn('no stats file')
 
-        median_response_time = stats.pop("median_response_time", 0)
-        requests_per_second = stats.pop("requests_per_second", 0)
+        median_response_time = stats.pop("median_response_time_per_endpoint", {})
+        avg_requests_per_second = stats.pop("avg_req_per_sec_per_endpoint", {})
 
         for request in request_tick_stats:
             for endpoint in request["stats"]:
                 req_id = identifier([endpoint['method'], endpoint['name']])  # TODO it should be the same as in distribution
+                successes = endpoint['num_requests'] - (endpoint['num_failures'] + endpoint['num_none_requests'])
                 stats['requests'].append({
                     'timestamp': ts,
                     'identifier': req_id,
@@ -157,14 +158,13 @@ class BoltAPIClient(object):
                     'name': endpoint['name'],
                     'num_requests': endpoint['num_requests'],
                     'num_failures': endpoint['num_failures'],
-                    'median_response_time': median_response_time,
+                    'median_response_time': median_response_time.get(endpoint['name'], 0),
                     'average_response_time': stats['average_response_time'],
                     'min_response_time': endpoint['min_response_time'],
                     'max_response_time': endpoint['max_response_time'],
                     'average_content_size': stats['average_response_size'],
-                    'requests_per_second': requests_per_second,
-                    'requests_per_tick': endpoint['num_requests'],
-                    'successes_per_tick': endpoint['num_requests'] - endpoint['num_failures'] - endpoint['num_none_requests'],
+                    'requests_per_second': avg_requests_per_second.get(endpoint['name'], 0),
+                    'successes_per_tick': successes,
                 })
 
         stats['errors'] = []
