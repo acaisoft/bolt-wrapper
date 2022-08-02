@@ -225,7 +225,7 @@ class LocustWrapper(object):
             for stats in self.stats_queue:
                 save_to_database(stats)
         # send first element from list to database if length of list more than 2
-        elif len(self.dataset) > 2:
+        elif len(self.dataset) > 0:
             first_element = self.dataset.pop(0)
             if WORKER_TYPE == 'master':
                 stats = self.prepare_stats_by_interval_master(first_element)
