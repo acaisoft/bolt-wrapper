@@ -148,7 +148,7 @@ class BoltAPIClient(object):
         avg_requests_per_second = stats.pop("avg_req_per_sec_per_endpoint", {})
 
         for request in request_tick_stats:
-            for endpoint in request["stats"]:
+            for endpoint in request.get('stats', []):
                 req_id = identifier([endpoint['method'], endpoint['name']])  # TODO it should be the same as in distribution
                 successes = endpoint['num_requests'] - (endpoint['num_failures'] + endpoint['num_none_requests'])
                 stats['requests'].append({
