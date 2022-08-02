@@ -155,7 +155,8 @@ class LocustWrapper(object):
         errors = []
         number_of_requests = 0
         number_of_failures = 0
-        request_per_seconds = 0
+        number_of_none_requests = 0
+        number_of_request_per_second = {}
         user_count = 0
         response_times = []
         content_lengths = []
@@ -163,27 +164,25 @@ class LocustWrapper(object):
         for el in elements:
             number_of_requests += el['stats_total']['num_requests']
             number_of_failures += el['stats_total']['num_failures']
+            number_of_none_requests += el['stats_total']['num_none_requests']
             user_count += el['user_count']
             response_times.append(el['stats_total']['total_response_time'])
             content_lengths.append(el['stats_total']['total_content_length'])
-
-            num_reqs_per_sec = el['stats_total']['num_reqs_per_sec']
-            try:
-                request_per_seconds += sum(num_reqs_per_sec.values()) / len(num_reqs_per_sec)
-            except ZeroDivisionError:
-                ...
+            number_of_request_per_second.update(el['stats_total']['num_reqs_per_sec'])
             if el['errors']:
                 errors.extend(list(el['errors'].values()))
         if number_of_requests == 0:
             return None
-        request_per_seconds /= len(elements)
-        total_response_time = sum(response_times)
-        total_content_length = sum(content_lengths)
-
+        try:
+            request_per_seconds = sum(number_of_request_per_second.values()) / len(number_of_request_per_second)
+        except ZeroDivisionError:
+            request_per_seconds = 0
         stats['execution_id'] = self.execution
         stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
-        stats['number_of_successes'] = number_of_requests - number_of_failures
+        stats['number_of_successes'] = number_of_requests - number_of_failures - number_of_none_requests
         stats['number_of_fails'] = number_of_failures
+        stats['median_response_time'] = median(response_times)
+        stats['requests_per_second'] = request_per_seconds
 
         number_of_users = self.environment.runner.user_count
         if number_of_users == 0 and len(self.users):
@@ -192,6 +191,9 @@ class LocustWrapper(object):
         number_of_errors = len(set(
             ['{0}/{1}/{2}'.format(error['method'], error['name'], error['error']) for error in errors]))
         stats['number_of_errors'] = number_of_errors
+
+        total_response_time = sum(response_times)
+        total_content_length = sum(content_lengths)
         try:
             stats['average_response_time'] = int(float(total_response_time) / number_of_requests)
         except (ZeroDivisionError, Exception) as ex:
@@ -204,11 +206,9 @@ class LocustWrapper(object):
             wrap_logger.info('Caught exception during calculating `average_response_size`')
             wrap_logger.info(f'{total_content_length} | {number_of_requests} | {ex}')
             stats['average_response_size'] = 0
-        stats['median_response_time'] = median(response_times)
-        stats['requests_per_second'] = request_per_seconds
         self.stats.append(stats)
         self.users.append(self.environment.runner.user_count)
-        stats['error_details'] = errors
+        stats['error_details'] = self.errors
         return stats
 
     def save_stats(self, send_all=False):
