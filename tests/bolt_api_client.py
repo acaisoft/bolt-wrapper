@@ -164,7 +164,7 @@ class BoltAPIClient(object):
                     'average_content_size': stats['average_response_size'],
                     'requests_per_second': requests_per_second,
                     'requests_per_tick': endpoint['num_requests'],
-                    'successes_per_tick': endpoint['num_requests'] - endpoint['num_failures'],
+                    'successes_per_tick': endpoint['num_requests'] - endpoint['num_failures'] - endpoint['num_none_requests'],
                 })
 
         stats['errors'] = []
