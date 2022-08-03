@@ -180,10 +180,16 @@ class LocustWrapper(object):
         stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
         stats['number_of_successes'] = number_of_requests - (number_of_failures + number_of_none_requests)
         stats['number_of_fails'] = number_of_failures
-        stats['median_response_time_per_endpoint'] = {
-            key: median([key * value for key, value in value.items()])
-            for key, value in response_times_per_endpoint.items()
-        }
+
+        # Response times from locust: 'response_times': { 420: 2, 430: 3,}
+        # To get median we need [420, 420, 430, 430, 430]
+        for name, value in response_times_per_endpoint.items():
+            temp = []
+            for time_value, counter in value.items():
+                temp.extend([time_value for i in range(counter)])
+            response_times_per_endpoint[name] = median(temp)
+        stats['median_response_time_per_endpoint'] = response_times_per_endpoint
+
         if number_of_request_per_second:
             stats['avg_req_per_sec_per_endpoint'] = {
                 key: sum(value.values()) / len(number_of_request_per_second)
