@@ -168,15 +168,15 @@ class BoltAPIClient(object):
                 })
 
         stats['errors'] = []
-        for ed in stats.pop('error_details', {}).values():
-            ed_id = identifier([ed['error_type'], ed['name']])
+        for ed in stats.pop('error_details', []):
+            ed_id = identifier([ed['method'], ed['name']])
             stats['errors'].append({
                 'timestamp': ts,
                 'identifier': ed_id,
-                'method': ed['error_type'],
+                'method': ed['method'],
                 'name': ed['name'],
-                'exception_data': ed['exception_data'],
-                'number_of_occurrences': ed['number_of_occurrences'],
+                'exception_data': ed['error'],
+                'number_of_occurrences': ed['occurrences'],
             })
 
         query = gql('''

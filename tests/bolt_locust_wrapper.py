@@ -221,7 +221,7 @@ class LocustWrapper(object):
             stats['average_response_size'] = 0
         self.stats.append(stats)
         self.users.append(self.environment.runner.user_count)
-        stats['error_details'] = self.errors
+        stats['error_details'] = errors
         return stats
 
     def save_stats(self, send_all=False):
