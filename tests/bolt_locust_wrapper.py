@@ -192,7 +192,7 @@ class LocustWrapper(object):
 
         if number_of_request_per_second:
             stats['avg_req_per_sec_per_endpoint'] = {
-                key: sum(value.values()) / len(number_of_request_per_second)
+                key: sum(value.values()) / len(value)
                 for key, value in number_of_request_per_second.items()
             }
 
@@ -233,6 +233,7 @@ class LocustWrapper(object):
                 else:
                     stats = self.prepare_stats_by_interval_common(element)
                 if stats is not None:
+                    self.stats_queue.append(stats)
                     save_to_database(stats)
             # send stats from queue if we lost connection during sending stats to database
             for stats in self.stats_queue:
