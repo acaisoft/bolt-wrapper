@@ -25,7 +25,6 @@ import os as wrap_os
 import re as wrap_re
 import time as wrap_time
 import datetime as wrap_datetime
-from statistics import median
 
 import locust.stats as wrap_locust_stats
 
@@ -35,6 +34,7 @@ from locust.runners import MasterRunner
 
 from bolt_logger import setup_custom_logger as wrap_setup_custom_logger
 from bolt_api_client import BoltAPIClient as WrapBoltAPIClient
+import bolt_locust_wrapper_parser as parser
 
 # TODO: temporary solution for disabling warnings
 import urllib3
@@ -135,6 +135,8 @@ class LocustWrapper(object):
             - number_of_errors: int
             - average_response_time: float
             - average_response_size: float
+            - median_response_time_per_endpoint: float
+            - avg_req_per_sec_per_endpoint: float
         """
         stats = {}
         timestamp = list(data.keys())[0]
@@ -161,12 +163,11 @@ class LocustWrapper(object):
         response_times_per_endpoint = {}
         response_times = []
         content_lengths = []
-        stats["requests"] = elements
         for el in elements:
+            user_count += el['user_count']
             number_of_requests += el['stats_total']['num_requests']
             number_of_failures += el['stats_total']['num_failures']
             number_of_none_requests += el['stats_total']['num_none_requests']
-            user_count += el['user_count']
             response_times.append(el['stats_total']['total_response_time'])
             content_lengths.append(el['stats_total']['total_content_length'])
             for endpoint in el["stats"]:
@@ -176,25 +177,16 @@ class LocustWrapper(object):
                 errors.extend(list(el['errors'].values()))
         if number_of_requests == 0:
             return None
+
+        stats["requests"] = elements
         stats['execution_id'] = self.execution
         stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
         stats['number_of_successes'] = number_of_requests - (number_of_failures + number_of_none_requests)
         stats['number_of_fails'] = number_of_failures
-
-        # Response times from locust: 'response_times': { 420: 2, 430: 3,}
-        # To get median we need [420, 420, 430, 430, 430]
-        for name, value in response_times_per_endpoint.items():
-            temp = []
-            for time_value, counter in value.items():
-                temp.extend([time_value for i in range(counter)])
-            response_times_per_endpoint[name] = median(temp)
-        stats['median_response_time_per_endpoint'] = response_times_per_endpoint
-
-        if number_of_request_per_second:
-            stats['avg_req_per_sec_per_endpoint'] = {
-                key: sum(value.values()) / len(value)
-                for key, value in number_of_request_per_second.items()
-            }
+        stats['median_response_time_per_endpoint'] = parser.get_response_times_median_for_every_endpoint(
+            response_times_per_endpoint
+        )
+        stats['avg_req_per_sec_per_endpoint'] = parser.get_number_of_request_per_second(number_of_request_per_second)
 
         number_of_users = self.environment.runner.user_count
         if number_of_users == 0 and user_count > 0:
@@ -205,20 +197,9 @@ class LocustWrapper(object):
             ['{0}/{1}/{2}'.format(error['method'], error['name'], error['error']) for error in errors]))
         stats['number_of_errors'] = number_of_errors
 
-        total_response_time = sum(response_times)
-        total_content_length = sum(content_lengths)
-        try:
-            stats['average_response_time'] = int(float(total_response_time) / number_of_requests)
-        except (ZeroDivisionError, Exception) as ex:
-            wrap_logger.info('Caught exception during calculating `average_response_time`')
-            wrap_logger.info(f'{total_response_time} | {number_of_requests} | {ex}')
-            stats['average_response_time'] = 0
-        try:
-            stats['average_response_size'] = int(float(total_content_length) / number_of_requests)
-        except (ZeroDivisionError, Exception) as ex:
-            wrap_logger.info('Caught exception during calculating `average_response_size`')
-            wrap_logger.info(f'{total_content_length} | {number_of_requests} | {ex}')
-            stats['average_response_size'] = 0
+        stats['average_response_time'] = parser.get_avg_response_time(response_times, number_of_requests)
+        stats['average_response_size'] = parser.get_avg_response_size(content_lengths, number_of_requests)
+
         self.stats.append(stats)
         self.users.append(self.environment.runner.user_count)
         stats['error_details'] = errors
