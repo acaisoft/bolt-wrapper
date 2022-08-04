@@ -158,11 +158,12 @@ class BoltAPIClient(object):
                     'name': endpoint['name'],
                     'num_requests': endpoint['num_requests'],
                     'num_failures': endpoint['num_failures'],
-                    'median_response_time': median_response_time.get(endpoint['name'], 0),
                     'average_response_time': stats['average_response_time'],
                     'min_response_time': endpoint['min_response_time'],
                     'max_response_time': endpoint['max_response_time'],
                     'average_content_size': stats['average_response_size'],
+                    'total_content_length': endpoint['total_content_length'],
+                    'median_response_time': median_response_time.get(endpoint['name'], 0),
                     'requests_per_second': avg_requests_per_second.get(endpoint['name'], 0),
                     'successes_per_tick': successes,
                 })
