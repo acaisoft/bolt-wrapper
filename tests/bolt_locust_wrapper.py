@@ -168,11 +168,6 @@ class LocustWrapper(object):
 
         if number_of_requests == 0:
             return None
-        number_of_users = self.environment.runner.user_count
-        if number_of_users == 0 and user_count > 0:
-            number_of_users = user_count
-        if number_of_users < self.environment.parsed_options.num_users:
-            return None
 
         stats["requests"] = elements
         stats['execution_id'] = self.execution
@@ -183,6 +178,10 @@ class LocustWrapper(object):
             response_times_per_endpoint
         )
         stats['avg_req_per_sec_per_endpoint'] = parser.get_number_of_request_per_second(number_of_request_per_second)
+
+        number_of_users = self.environment.runner.user_count
+        if number_of_users == 0 and user_count > 0:
+            number_of_users = user_count
         stats['number_of_users'] = number_of_users
 
         number_of_errors = len(set(
