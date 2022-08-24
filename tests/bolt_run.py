@@ -317,6 +317,8 @@ def main():
         elif is_slave:
             additional_arguments = runner.prepare_slave_arguments()
         # set arguments to locust
+        logger.info(f'Configuration parameters for execution {EXECUTION_ID}:\n'
+                    f'{execution_data["execution"][0]["configuration"]["configuration_parameters"]}')
         logger.info(f'Arguments (sys.argv) before {sys.argv}')
         sys.argv = runner.get_load_tests_arguments(execution_data, additional_arguments, is_master)
         logger.info(f'Arguments (sys.argv) after {sys.argv}')
