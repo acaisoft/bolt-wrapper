@@ -64,7 +64,8 @@ bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
 
 IGNORED_ARGS = [
     'load_tests_repository_branch',
-    'load_tests_file_name'
+    'load_tests_file_name',
+    'load_tests_users_per_worker'
 ]
 
 
