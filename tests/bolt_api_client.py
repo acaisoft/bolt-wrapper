@@ -334,4 +334,10 @@ class BoltAPIClient(object):
 
     def terminate(self):
         logger.info('Terminating GQL Client')
-        self.gql_client.close()
+        try:
+            self.gql_client.close()
+        except AttributeError:
+            logger.info('GQL Client transport already closed')
+            return
+        except Exception as ex:
+            logger.error(ex)
