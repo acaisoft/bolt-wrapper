@@ -332,3 +332,6 @@ class BoltAPIClient(object):
         result = self.gql_client.transport.execute(query, variable_values={'data': data})
         return result
 
+    def terminate(self):
+        logger.info('Terminating GQL Client')
+        self.gql_client.close()

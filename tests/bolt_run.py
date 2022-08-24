@@ -72,6 +72,7 @@ def _exit_with_status(status, reason=None):
     logger.info(f'Exit with status {status}. For execution_id {EXECUTION_ID}')
     if reason is not None:
         logger.info(f'Reason: {reason}')
+    bolt_api_client.terminate()
     sys.exit(status)
 
 

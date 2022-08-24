@@ -64,7 +64,9 @@ def _signals_exit_handler(signo, stack_frame):
             global FLOW_WAS_TERMINATED_OR_FAILED
             FLOW_WAS_TERMINATED_OR_FAILED = True
             logger.info('Monitoring did not finish successfully. Exit with error (code 1)')
+            bolt_api_client.terminate()
             sys.exit(EXIT_STATUS_ERROR)
+    bolt_api_client.terminate()
     logger.info('Exit from monitoring with code 0')
     sys.exit(EXIT_STATUS_SUCCESS)
 

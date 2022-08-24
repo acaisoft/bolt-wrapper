@@ -46,6 +46,7 @@ class Supervisor(object):
                 logger.info(f'Supervisor. Status of flow is {status}')
                 if status in (Status.FAILED.value, Status.ERROR.value, Status.TERMINATED.value):
                     logger.info('Supervisor. Flow crashed/terminated. Call signal SIGTERM and exit')
+                    bolt_api_client.terminate()
                     os.kill(os.getpid(), signal.SIGTERM)
                     break
             finally:
