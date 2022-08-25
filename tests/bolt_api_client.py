@@ -248,7 +248,8 @@ class BoltAPIClient(object):
                         number_of_occurrences: $number_of_occurrences}]){
                 affected_rows }}
         ''')
-        del errors["execution_id"]
+        if "execution_id" in errors:
+            del errors["execution_id"]
         result = self.gql_client.transport.execute(query, variable_values=errors)
         return result
 

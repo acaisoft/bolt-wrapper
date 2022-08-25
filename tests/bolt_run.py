@@ -306,12 +306,12 @@ def main():
             has_load_tests=has_load_tests, monitoring_arguments=monitoring_arguments
         )
     elif scenario_type == 'load_tests':
-        supervisor.run()
         runner.set_environments_for_load_tests(execution_data)
         # master/slave
         additional_arguments = None
         is_master, is_slave = runner.master_slave_detector()
         if is_master:
+            supervisor.run()
             number_of_slaves = execution_data['execution'][0]['configuration']['instances']
             additional_arguments = runner.prepare_master_arguments(number_of_slaves)
         elif is_slave:
