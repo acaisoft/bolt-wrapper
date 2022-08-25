@@ -354,14 +354,9 @@ def save_to_database(data):
     if data is not None and data and WORKER_TYPE == 'master':
         try:
             locust_wrapper.bolt_api_client.insert_aggregated_results(data)
-        except GreenletExit as ex:
-            wrap_logger.info('SLEEP 20 sec')
-            wrap_time.sleep(20)
-            wrap_logger.info(f'Caught GreenletExit exception during stats saving. {ex}')
-            raise
-        except:
-            # TODO: need to detect potential exception during saving
+        except Exception as ex:
             wrap_logger.exception('Failed to insert aggregated results. Error ignored and execution continues.')
+            wrap_logger.exception(ex)
             return
     try:
         locust_wrapper.stats_queue.remove(data)
