@@ -303,6 +303,7 @@ def quitting_handler(environment):
     Will be called before exiting test runner
     """
     if not locust_wrapper.is_finished and WORKER_TYPE == 'master':
+        locust_wrapper.is_finished = True
         wrap_logger.info('Begin quiting handler')
         locust_wrapper.end_execution = wrap_datetime.datetime.now()
         execution_update_data = {'end_locust': locust_wrapper.end_execution.isoformat()}
@@ -320,7 +321,6 @@ def quitting_handler(environment):
         for error_item in list(locust_wrapper.errors.items()):
             _, value = error_item
             locust_wrapper.bolt_api_client.insert_error_results(value)
-        locust_wrapper.is_finished = True
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
         locust_wrapper.bolt_api_client.terminate()
         wrap_logger.info('End quiting handler')
