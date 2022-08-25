@@ -297,14 +297,14 @@ def request_handler(request_type, name, response_time, response_length, response
     locust_wrapper.push_event(received_data, event_type=event_type)
 
 
-@wrap_events.quitting.add_listener
-def quitting_handler(environment):
+@wrap_events.quit.add_listener
+def quitting_handler(exit_code):
     """
     Will be called before exiting test runner
     """
     if not locust_wrapper.is_finished and WORKER_TYPE == 'master':
         locust_wrapper.is_finished = True
-        wrap_logger.info('Begin quiting handler')
+        wrap_logger.info('Begin quit handler')
         locust_wrapper.end_execution = wrap_datetime.datetime.now()
         execution_update_data = {'end_locust': locust_wrapper.end_execution.isoformat()}
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
@@ -315,15 +315,13 @@ def quitting_handler(environment):
         wrap_logger.info(f'Count stats {len(locust_wrapper.stats)}')
         wrap_logger.info(f'Locust start: {locust_wrapper.start_execution}. Locust end: {locust_wrapper.end_execution}')
         wrap_logger.info(f'Dataset timestamps {locust_wrapper.dataset_timestamps}')
-        # wait for updating data
-        wrap_time.sleep(SENDING_INTERVAL_IN_SECONDS)
         # prepare and send error results to database
         for error_item in list(locust_wrapper.errors.items()):
             _, value = error_item
             locust_wrapper.bolt_api_client.insert_error_results(value)
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
         locust_wrapper.bolt_api_client.terminate()
-        wrap_logger.info('End quiting handler')
+        wrap_logger.info('End quit handler')
 
 
 @wrap_events.init.add_listener
