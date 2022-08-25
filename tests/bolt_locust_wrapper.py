@@ -28,7 +28,6 @@ import datetime as wrap_datetime
 
 import locust.stats as wrap_locust_stats
 
-from gevent import GreenletExit, lock
 from locust import events as wrap_events
 from locust.runners import MasterRunner
 
@@ -305,25 +304,24 @@ def quitting_handler(exit_code):
     if not locust_wrapper.is_finished and WORKER_TYPE == 'master':
         locust_wrapper.is_finished = True
         wrap_logger.info('Begin quit handler')
-        with lock:
-            locust_wrapper.end_execution = wrap_datetime.datetime.now()
-            execution_update_data = {'end_locust': locust_wrapper.end_execution.isoformat()}
-            locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
-            # save remaining data from 'dataset' list
-            locust_wrapper.save_stats(send_all=True)
-            sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
-            wrap_logger.info(f'Number of success: {sum_success}. Number of errors {len(locust_wrapper.errors)}')
-            wrap_logger.info(f'Count stats {len(locust_wrapper.stats)}')
-            wrap_logger.info(f'Locust start: {locust_wrapper.start_execution}. '
-                             f'Locust end: {locust_wrapper.end_execution}')
-            wrap_logger.info(f'Dataset timestamps {locust_wrapper.dataset_timestamps}')
-            # prepare and send error results to database
-            for error_item in list(locust_wrapper.errors.items()):
-                _, value = error_item
-                locust_wrapper.bolt_api_client.insert_error_results(value)
-            locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
-            locust_wrapper.bolt_api_client.terminate()
-            wrap_logger.info('End quit handler')
+        locust_wrapper.end_execution = wrap_datetime.datetime.now()
+        execution_update_data = {'end_locust': locust_wrapper.end_execution.isoformat()}
+        locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
+        # save remaining data from 'dataset' list
+        locust_wrapper.save_stats(send_all=True)
+        sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
+        wrap_logger.info(f'Number of success: {sum_success}. Number of errors {len(locust_wrapper.errors)}')
+        wrap_logger.info(f'Count stats {len(locust_wrapper.stats)}')
+        wrap_logger.info(f'Locust start: {locust_wrapper.start_execution}. '
+                         f'Locust end: {locust_wrapper.end_execution}')
+        wrap_logger.info(f'Dataset timestamps {locust_wrapper.dataset_timestamps}')
+        # prepare and send error results to database
+        for error_item in list(locust_wrapper.errors.items()):
+            _, value = error_item
+            locust_wrapper.bolt_api_client.insert_error_results(value)
+        locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
+        locust_wrapper.bolt_api_client.terminate()
+        wrap_logger.info('End quit handler')
 
 
 @wrap_events.init.add_listener
