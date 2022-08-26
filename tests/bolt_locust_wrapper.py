@@ -49,7 +49,7 @@ HASURA_TOKEN = wrap_os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = wrap_os.getenv('BOLT_EXECUTION_ID')
 WORKER_TYPE = wrap_os.getenv('BOLT_WORKER_TYPE')
 LOCUSTFILE_NAME = wrap_os.getenv('BOLT_LOCUSTFILE_NAME')
-STAT_GATHER_INTERVAL = wrap_os.getenv('BOLT_STAT_GATHER_INTERVAL', 1)
+STAT_GATHER_INTERVAL = int(wrap_os.getenv('BOLT_STAT_GATHER_INTERVAL', 2))
 
 wrap_locust_stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
 wrap_logger = wrap_setup_custom_logger(__name__)
@@ -339,9 +339,7 @@ def quitting_handler(exit_code):
                          f'Locust end: {locust_wrapper.end_execution}')
         wrap_logger.info(f'Dataset timestamps {locust_wrapper.dataset_timestamps}')
         # prepare and send error results to database
-        for error_item in list(locust_wrapper.errors.items()):
-            _, value = error_item
-            locust_wrapper.bolt_api_client.insert_error_results(value)
+        locust_wrapper.bolt_api_client.insert_error_results(locust_wrapper.errors.values())
         locust_wrapper.bolt_api_client.insert_endpoint_totals(EXECUTION_ID, locust_wrapper.environment.stats)
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
         global STAT_WATCHER_INSTANCE

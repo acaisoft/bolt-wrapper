@@ -282,23 +282,13 @@ class BoltAPIClient(object):
         return result
 
     @log_time_execution(logger)
-    def insert_error_results(self, errors):
+    def insert_error_results(self, error_objects):
         query = gql('''
-            mutation (
-                $name: String, 
-                $error_type: String, 
-                $exception_data: String, 
-                $number_of_occurrences: Int){
-                    insert_result_error (objects: [{
-                        name: $name, 
-                        error_type: $error_type, 
-                        exception_data: $exception_data, 
-                        number_of_occurrences: $number_of_occurrences}]){
+            mutation ($objects: [test_insert_input!]!){
+                    insert_result_error (objects: $objects){
                 affected_rows }}
         ''')
-        if "execution_id" in errors:
-            del errors["execution_id"]
-        result = self.gql_client.transport.execute(query, variable_values=errors)
+        result = self.gql_client.transport.execute(query, variable_values=error_objects)
         return result
 
     @log_time_execution(logger)
