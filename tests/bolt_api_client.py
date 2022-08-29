@@ -190,6 +190,8 @@ class BoltAPIClient(object):
                 $number_of_fails: Int, 
                 $number_of_errors: Int,
                 $number_of_users: Int, 
+                $successes_per_second: numeric,
+                $failures_per_second: numeric,
                 $average_response_time: numeric, 
                 $average_response_size: numeric
             ){ 
@@ -202,6 +204,8 @@ class BoltAPIClient(object):
                     number_of_fails: $number_of_fails, 
                     number_of_errors: $number_of_errors, 
                     number_of_users: $number_of_users, 
+                    successes_per_second: $successes_per_second,
+                    failures_per_second: $failures_per_second,
                     average_response_time: $average_response_time, 
                     average_response_size: $average_response_size
                 }]) { affected_rows }
