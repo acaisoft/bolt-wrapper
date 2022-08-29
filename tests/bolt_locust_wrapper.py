@@ -41,7 +41,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Envs
-SENDING_INTERVAL_IN_SECONDS = int(wrap_os.getenv('BOLT_SENDING_INTERVAL_IN_SECONDS', '2'))
+SENDING_INTERVAL_IN_SECONDS = int(wrap_os.getenv('BOLT_SENDING_INTERVAL_IN_SECONDS', '1'))
 GRAPHQL_URL = wrap_os.getenv('BOLT_GRAPHQL_URL')
 HASURA_TOKEN = wrap_os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = wrap_os.getenv('BOLT_EXECUTION_ID')
