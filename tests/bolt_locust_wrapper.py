@@ -138,11 +138,13 @@ class LocustWrapper(object):
             - median_response_time_per_endpoint: float
             - avg_req_per_sec_per_endpoint: float
         """
+        if locust_wrapper.environment.parsed_options.expect_workers == len(locust_wrapper.environment.runner.clients):
+            locust_wrapper.environment.runner.register_message('workers_ready', True)
+        if not locust_wrapper.environment.runner.custom_messages.get('workers_ready', False):
+            return None
         stats = {}
         timestamp = list(data.keys())[0]
         elements = data[timestamp]
-        if len(locust_wrapper.environment.stats.history) < 1:
-            return None
         # prepare dict for stats
         errors = []
         requests_per_second = int(round(locust_wrapper.environment.stats.total.current_rps, 0))
@@ -325,7 +327,7 @@ def quitting_handler(exit_code):
 
 
 @wrap_events.init.add_listener
-def start_handler(environment, **kwargs):
+def init_handler(environment, **kwargs):
     """
     Will be called before starting test runner
     """
