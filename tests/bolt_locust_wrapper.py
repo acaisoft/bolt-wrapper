@@ -140,18 +140,8 @@ class LocustWrapper(object):
         stats = {}
         timestamp = list(data.keys())[0]
         elements = data[timestamp]
-        if not elements:
-            empty_stats = {
-                'execution_id': locust_wrapper.execution,
-                'timestamp': wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat(),
-                'number_of_users': 0,
-                'number_of_fails': 0,
-                'number_of_successes': 0,
-                'number_of_errors': 0,
-                'average_response_time': 0,
-                'average_response_size': 0
-            }
-            return empty_stats
+        if len(locust_wrapper.environment.stats.history < 1):
+            return None
         # prepare dict for stats
         errors = []
         number_of_requests = 0
