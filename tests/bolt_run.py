@@ -23,6 +23,7 @@ import os
 import importlib
 import time
 
+import requests.exceptions
 from locust.main import main as locust_main
 
 from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
@@ -58,6 +59,8 @@ logger.info(f'nfs mount path: {NFS_MOUNT}')
 logger.info(os.environ)
 
 SCENARIO_TYPE: str
+MAX_GQL_RETRY = 3
+GQL_RETRY_TIMEOUT = 3
 
 no_keep_alive = True if WORKER_TYPE == 'slave' else False
 bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
@@ -268,8 +271,6 @@ class Runner(object):
 
     def prepare_slave_arguments(self):
         logger.info(f'Start preparing arguments for slave.')
-        bolt_api_client.insert_execution_instance({
-            'host': MASTER_HOST, 'port': 5557, 'status': 'READY', 'instance_type': WORKER_TYPE})
         return ['--worker', f'--master-host={MASTER_HOST}']  # additional arguments for slave
 
     @staticmethod
@@ -288,7 +289,17 @@ def main():
     logger.info('ARGS')
     logger.info(sys.argv)
     scenario_type = runner.scenario_detector()
-    execution_data = bolt_api_client.get_execution(execution_id=EXECUTION_ID)
+    execution_data = None
+    retry_count = 0
+    while execution_data is None or retry_count < MAX_GQL_RETRY:
+        try:
+            execution_data = bolt_api_client.get_execution(execution_id=EXECUTION_ID)
+        except requests.HTTPError as ex:
+            retry_count += 1
+            time.sleep(GQL_RETRY_TIMEOUT)
+    if not execution_data:
+        logger.error(f'Not able to gather execution data due to HTTP Error {ex}')
+        sys.exit(1)
     # if flow terminated we should exit from container as success (without retries)
     if runner.flow_was_terminated_or_failed(execution_data):
         _exit_with_status(status=EXIT_STATUS_SUCCESS, reason='Flow failed or has been terminated')
