@@ -140,7 +140,7 @@ class LocustWrapper(object):
         stats = {}
         timestamp = list(data.keys())[0]
         elements = data[timestamp]
-        if len(locust_wrapper.environment.stats.history < 1):
+        if len(locust_wrapper.environment.stats.history) < 1:
             return None
         # prepare dict for stats
         errors = []
