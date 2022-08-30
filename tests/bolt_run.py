@@ -291,7 +291,7 @@ def main():
     scenario_type = runner.scenario_detector()
     execution_data = None
     retry_count = 0
-    while execution_data is None or retry_count < MAX_GQL_RETRY:
+    while execution_data is None and retry_count < MAX_GQL_RETRY:
         try:
             execution_data = bolt_api_client.get_execution(execution_id=EXECUTION_ID)
         except requests.HTTPError as ex:
