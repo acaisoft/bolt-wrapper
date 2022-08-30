@@ -168,10 +168,8 @@ class LocustWrapper(object):
             user_count += el['user_count']
             number_of_requests += el['stats_total']['num_requests']
             number_of_failures += el['stats_total']['num_failures']
-            if num_reqs_per_sec := list(el['stats_total']['num_reqs_per_sec']):
-                requests_per_second += el['stats_total']['num_reqs_per_sec'][num_reqs_per_sec[-1]]
-            if num_fail_per_sec := list(el['stats_total']['num_fail_per_sec']):
-                failures_per_second += el['stats_total']['num_fail_per_sec'][num_fail_per_sec[-1]]
+            requests_per_second += round(locust_wrapper.environment.stats.total.current_rps, 0)
+            failures_per_second += round(locust_wrapper.environment.stats.total.current_fail_per_sec, 0)
             number_of_none_requests += el['stats_total']['num_none_requests']
             response_times.append(el['stats_total']['total_response_time'])
             content_lengths.append(el['stats_total']['total_content_length'])
@@ -187,10 +185,8 @@ class LocustWrapper(object):
         stats["requests"] = elements
         stats['execution_id'] = self.execution
         stats['timestamp'] = wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat()
-        stats['number_of_successes'] = number_of_requests - (number_of_failures + number_of_none_requests)
-        stats['number_of_fails'] = number_of_failures
-        stats['successes_per_second'] = requests_per_second - failures_per_second
-        stats['failures_per_second'] = failures_per_second
+        stats['number_of_successes'] = requests_per_second - failures_per_second
+        stats['number_of_fails'] = failures_per_second
         stats['median_response_time_per_endpoint'] = parser.get_response_times_median_for_every_endpoint(
             response_times_per_endpoint
         )
