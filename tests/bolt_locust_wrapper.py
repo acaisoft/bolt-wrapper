@@ -21,6 +21,7 @@
 We have to wrap all imports to make sure that locustfile.py does not overwrite original imports from this file
 during test execution. For all imports we add `wrap_` prefix.
 """
+import math
 import os as wrap_os
 import re as wrap_re
 import time as wrap_time
@@ -140,15 +141,18 @@ class LocustWrapper(object):
         stats = {}
         timestamp = list(data.keys())[0]
         elements = data[timestamp]
-        if len(locust_wrapper.environment.stats.entries) < 1:
+        if len(locust_wrapper.environment.stats.history) < 1:
             return None
         # prepare dict for stats
         errors = []
-        number_of_requests = 0
-        number_of_failures = 0
-        number_of_none_requests = 0
-        requests_per_second = 0
-        failures_per_second = 0
+        requests_per_second = int(round(locust_wrapper.environment.stats.total.current_rps, 0))
+        failures_per_second = int(round(locust_wrapper.environment.stats.total.current_fail_per_sec, 0))
+        if requests_per_second == 0:
+            try:
+                requests_per_second = locust_wrapper.environment.stats.total.num_reqs_per_sec[math.floor(timestamp)]
+                failures_per_second = locust_wrapper.environment.stats.total.num_fail_per_sec[math.floor(timestamp)]
+            except:
+                pass
         user_count = 0
         number_of_request_per_second = {}
         response_times_per_endpoint = {}
@@ -156,26 +160,22 @@ class LocustWrapper(object):
         content_lengths = []
         for el in elements:
             user_count += el['user_count']
-            number_of_requests += el['stats_total']['num_requests']
-            number_of_failures += el['stats_total']['num_failures']
-            requests_per_second += round(locust_wrapper.environment.stats.total.current_rps, 0)
-            failures_per_second += round(locust_wrapper.environment.stats.total.current_fail_per_sec, 0)
-            number_of_none_requests += el['stats_total']['num_none_requests']
             response_times.append(el['stats_total']['total_response_time'])
             content_lengths.append(el['stats_total']['total_content_length'])
             for endpoint in el["stats"]:
-                current_env_endpoint = locust_wrapper.environment.stats.entries.get(
-                    (endpoint["name"], endpoint["method"])
-                )
-                current_ep_rps = round(current_env_endpoint.current_rps)
-                current_ep_times = current_env_endpoint.response_times
+                try:
+                    current_env_endpoint = locust_wrapper.environment.stats.entries.get(
+                        (endpoint["name"], endpoint["method"])
+                    )
+                    current_ep_rps = round(current_env_endpoint.current_rps)
+                    current_ep_times = current_env_endpoint.response_times
+                except AttributeError:
+                    current_ep_rps = 0
+                    current_ep_times = 0
                 number_of_request_per_second[endpoint["name"]] = current_ep_rps
                 response_times_per_endpoint[endpoint["name"]] = current_ep_times
             if el['errors']:
                 errors.extend(list(el['errors'].values()))
-
-        if number_of_requests == 0:
-            return None
 
         stats["requests"] = elements
         stats['execution_id'] = self.execution
@@ -196,8 +196,8 @@ class LocustWrapper(object):
             ['{0}/{1}/{2}'.format(error['method'], error['name'], error['error']) for error in errors]))
         stats['number_of_errors'] = number_of_errors
 
-        stats['average_response_time'] = parser.get_avg_response_time(response_times, number_of_requests)
-        stats['average_response_size'] = parser.get_avg_response_size(content_lengths, number_of_requests)
+        stats['average_response_time'] = round(locust_wrapper.environment.stats.total.avg_response_time)
+        stats['average_response_size'] = round(locust_wrapper.environment.stats.total.avg_content_length)
 
         self.stats.append(stats)
         self.users.append(self.environment.runner.user_count)
