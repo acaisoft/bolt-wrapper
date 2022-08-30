@@ -137,7 +137,7 @@ class LocustWrapper(object):
             - median_response_time_per_endpoint: float
             - avg_req_per_sec_per_endpoint: float
         """
-        if len(locust_wrapper.environment.stats.history < 1):
+        if len(locust_wrapper.environment.stats.history) < 1:
             return None
         stats = {}
         timestamp = list(data.keys())[0]
@@ -164,8 +164,13 @@ class LocustWrapper(object):
             response_times.append(el['stats_total']['total_response_time'])
             content_lengths.append(el['stats_total']['total_content_length'])
             for endpoint in el["stats"]:
-                number_of_request_per_second[endpoint["name"]] = endpoint["num_reqs_per_sec"]
-                response_times_per_endpoint[endpoint["name"]] = endpoint["response_times"]
+                current_env_endpoint = locust_wrapper.environment.stats.entries.get(
+                    (endpoint["name"], endpoint["method"])
+                )
+                current_ep_rps = round(current_env_endpoint.current_rps)
+                current_ep_times = current_env_endpoint.response_times
+                number_of_request_per_second[endpoint["name"]] = current_ep_rps
+                response_times_per_endpoint[endpoint["name"]] = current_ep_times
             if el['errors']:
                 errors.extend(list(el['errors'].values()))
 
@@ -180,7 +185,7 @@ class LocustWrapper(object):
         stats['median_response_time_per_endpoint'] = parser.get_response_times_median_for_every_endpoint(
             response_times_per_endpoint
         )
-        stats['avg_req_per_sec_per_endpoint'] = parser.get_number_of_request_per_second(number_of_request_per_second)
+        stats['avg_req_per_sec_per_endpoint'] = number_of_request_per_second
 
         number_of_users = self.environment.runner.user_count
         if number_of_users == 0 and user_count > 0:
