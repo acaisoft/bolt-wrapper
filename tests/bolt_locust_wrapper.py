@@ -137,11 +137,21 @@ class LocustWrapper(object):
             - median_response_time_per_endpoint: float
             - avg_req_per_sec_per_endpoint: float
         """
-        if len(locust_wrapper.environment.stats.history) < 1:
-            return None
         stats = {}
         timestamp = list(data.keys())[0]
         elements = data[timestamp]
+        if not elements:
+            empty_stats = {
+                'execution_id': locust_wrapper.execution,
+                'timestamp': wrap_datetime.datetime.utcfromtimestamp(timestamp).isoformat(),
+                'number_of_users': 0,
+                'number_of_fails': 0,
+                'number_of_successes': 0,
+                'number_of_errors': 0,
+                'average_response_time': 0,
+                'average_response_size': 0
+            }
+            return empty_stats
         # prepare dict for stats
         errors = []
         number_of_requests = 0
@@ -318,6 +328,7 @@ def quitting_handler(exit_code):
         for error_item in list(locust_wrapper.errors.items()):
             _, value = error_item
             locust_wrapper.bolt_api_client.insert_error_results(value)
+        locust_wrapper.bolt_api_client.insert_endpoint_totals(EXECUTION_ID, locust_wrapper.environment.stats)
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
         locust_wrapper.bolt_api_client.terminate()
         wrap_logger.info('End quit handler')

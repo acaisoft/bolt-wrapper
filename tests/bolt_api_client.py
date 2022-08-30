@@ -213,6 +213,54 @@ class BoltAPIClient(object):
         return result
 
     @log_time_execution(logger)
+    def insert_endpoint_totals(self, execution_id, stats):
+        query = gql('''
+            query ($eid:uuid!) {
+                execution_by_pk(id:$eid) {
+                    execution_requests (
+                      order_by:{identifier:asc, timestamp:desc}
+                      distinct_on: [identifier]
+                    ) 
+                    {
+                      execution_id, identifier, method, name, timestamp
+                    }
+                  }
+                }
+        ''')
+        result = self.gql_client.transport.execute(query, variable_values={'eid': execution_id})
+        ep_stats = result.formatted["data"]["execution_by_pk"]["execution_requests"]
+        for el in ep_stats:
+            singular_ep_stats = stats.get(el["name"], el["method"])
+            el["num_requests"] = singular_ep_stats.num_requests
+            el["num_failures"] = singular_ep_stats.num_failures
+            el["median_response_time"] = round(singular_ep_stats.median_response_time)
+            el["average_response_time"] = round(singular_ep_stats.avg_response_time)
+            el["min_response_time"] = round(singular_ep_stats.min_response_time)
+            el["max_response_time"] = round(singular_ep_stats.max_response_time)
+            el["average_content_size"] = round(singular_ep_stats.avg_content_length)
+            el["requests_per_second"] = round(singular_ep_stats.total_rps)
+            # locust does not provide min/max content length for singular endpoint in final stats
+            el["min_content_size"] = 0
+            el["max_content_size"] = 0
+
+        mutation = gql('''
+            mutation ($data:[execution_request_totals_insert_input!]!) {
+                insert_execution_request_totals(
+                    objects: $data,
+                    on_conflict: {
+                        constraint: execution_request_totals_pkey
+                        update_columns: [
+                            average_content_size, average_response_time, max_response_time, median_response_time, 
+                            min_response_time, num_failures, num_requests, requests_per_second, timestamp
+                        ]
+                    }
+                ) { affected_rows }
+            }
+        ''')
+        result = self.gql_client.transport.execute(mutation, variable_values={'data': ep_stats})
+        return result
+
+    @log_time_execution(logger)
     def insert_distribution_results(self, test_report):
         query = gql('''
             mutation (
