@@ -35,6 +35,7 @@ from locust.runners import MasterRunner
 from bolt_logger import setup_custom_logger as wrap_setup_custom_logger
 from bolt_api_client import BoltAPIClient as WrapBoltAPIClient
 import bolt_locust_wrapper_parser as parser
+from bolt_stat_watcher import StatWatcher
 
 # TODO: temporary solution for disabling warnings
 import urllib3
@@ -48,10 +49,13 @@ HASURA_TOKEN = wrap_os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = wrap_os.getenv('BOLT_EXECUTION_ID')
 WORKER_TYPE = wrap_os.getenv('BOLT_WORKER_TYPE')
 LOCUSTFILE_NAME = wrap_os.getenv('BOLT_LOCUSTFILE_NAME')
+STAT_GATHER_INTERVAL = wrap_os.getenv('BOLT_STAT_GATHER_INTERVAL', 1)
 
 wrap_locust_stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
 wrap_logger = wrap_setup_custom_logger(__name__)
 wrap_logger.propagate = False
+
+STAT_WATCHER_INSTANCE = None
 
 # dynamically import source code from locustfile with tests
 exec(f'from {LOCUSTFILE_NAME} import *')
@@ -283,6 +287,23 @@ class LocustWrapper(object):
 locust_wrapper = LocustWrapper()
 
 
+def check_stats():
+    env = locust_wrapper.environment
+    if len(env.stats.history) > 0 or env.runner.user_count != 0:
+        stats = env.stats.total
+        data = {
+            'timestamp': wrap_datetime.datetime.now().isoformat(),
+            'number_of_successes': round(stats.current_rps - stats.current_fail_per_sec),
+            'number_of_fails': round(stats.current_fail_per_sec),
+            'number_of_errors': 0,  # TODO count correct errors
+            'number_of_users': locust_wrapper.environment.runner.user_count,
+            'average_response_time': stats.avg_response_time,
+            'average_response_size': 0, # TODO count correct size
+            'execution_id': EXECUTION_ID,
+        }
+        locust_wrapper.bolt_api_client.insert_aggregated_results(data)
+
+
 @wrap_events.request.add_listener
 def request_handler(request_type, name, response_time, response_length, response, context, exception, start_time, url):
     """
@@ -310,8 +331,9 @@ def quitting_handler(exit_code):
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
         # save remaining data from 'dataset' list
         locust_wrapper.save_stats(send_all=True)
-        sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
-        wrap_logger.info(f'Number of success: {sum_success}. Number of errors {len(locust_wrapper.errors)}')
+        # TODO find proper way to present this stats
+        # sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
+        # wrap_logger.info(f'Number of success: {sum_success}. Number of errors {len(locust_wrapper.errors)}')
         wrap_logger.info(f'Count stats {len(locust_wrapper.stats)}')
         wrap_logger.info(f'Locust start: {locust_wrapper.start_execution}. '
                          f'Locust end: {locust_wrapper.end_execution}')
@@ -322,8 +344,21 @@ def quitting_handler(exit_code):
             locust_wrapper.bolt_api_client.insert_error_results(value)
         locust_wrapper.bolt_api_client.insert_endpoint_totals(EXECUTION_ID, locust_wrapper.environment.stats)
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
+        global STAT_WATCHER_INSTANCE
+        if isinstance(STAT_WATCHER_INSTANCE, StatWatcher):
+            STAT_WATCHER_INSTANCE.stop()
         locust_wrapper.bolt_api_client.terminate()
         wrap_logger.info('End quit handler')
+
+
+@wrap_events.test_start.add_listener
+def test_start_handler(*args, **kwargs):
+    """
+    Will be called before starting test runner
+    """
+    if WORKER_TYPE == 'master':
+        global STAT_WATCHER_INSTANCE
+        STAT_WATCHER_INSTANCE = StatWatcher(STAT_GATHER_INTERVAL, check_stats)
 
 
 @wrap_events.init.add_listener
@@ -353,7 +388,7 @@ def save_to_database(data):
     """
     if data is not None and data and WORKER_TYPE == 'master':
         try:
-            locust_wrapper.bolt_api_client.insert_aggregated_results(data)
+            locust_wrapper.bolt_api_client.insert_requests_distribution_results(data)
         except Exception as ex:
             wrap_logger.exception('Failed to insert aggregated results. Error ignored and execution continues.')
             wrap_logger.exception(ex)
