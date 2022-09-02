@@ -416,6 +416,7 @@ class BoltAPIClient(object):
                         }]) { affected_rows }
                     }
                 ''')
+        stats.pop('execution_id')
         result = self.gql_client.transport.execute(query, variable_values=stats)
-        logger.error(f"Inser Aggregation Result Error: {result.errors}")
+        logger.error(f'Insert Aggregation Result Error: {result.errors}')
         return result
