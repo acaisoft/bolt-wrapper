@@ -401,8 +401,7 @@ class BoltAPIClient(object):
                         $number_of_errors: Int,
                         $number_of_users: Int, 
                         $average_response_time: numeric, 
-                        $average_response_size: numeric,
-                        $execution_id: uuid, 
+                        $average_response_size: numeric
                     ){ 
                         insert_result_aggregate(objects: [{ 
                             timestamp: $timestamp, 
@@ -412,7 +411,6 @@ class BoltAPIClient(object):
                             number_of_users: $number_of_users, 
                             average_response_time: $average_response_time, 
                             average_response_size: $average_response_size
-                            execution_id: $execution_id
                         }]) { affected_rows }
                     }
                 ''')
