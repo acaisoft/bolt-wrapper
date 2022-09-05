@@ -200,13 +200,13 @@ class BoltAPIClient(object):
         ''')
         #  hack for avoid unexpected value during gql sending
         # TODO set this values only for proper cases
-        stats.pop('timestamp')
-        stats.pop('number_of_successes')
-        stats.pop('number_of_fails')
-        stats.pop('number_of_errors')
-        stats.pop('number_of_users')
-        stats.pop('average_response_time')
-        stats.pop('average_response_size')
+        stats.pop('timestamp', None)
+        stats.pop('number_of_successes', None)
+        stats.pop('number_of_fails', None)
+        stats.pop('number_of_errors', None)
+        stats.pop('number_of_users', None)
+        stats.pop('average_response_time', None)
+        stats.pop('average_response_size', None)
         if 'execution_id' in stats:
             del stats['execution_id']
         result = self.gql_client.transport.execute(query, variable_values=stats)
