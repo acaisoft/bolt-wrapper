@@ -339,7 +339,7 @@ def quitting_handler(exit_code):
                          f'Locust end: {locust_wrapper.end_execution}')
         wrap_logger.info(f'Dataset timestamps {locust_wrapper.dataset_timestamps}')
         # prepare and send error results to database
-        locust_wrapper.bolt_api_client.insert_error_results(locust_wrapper.errors.values())
+        locust_wrapper.bolt_api_client.insert_error_results(list(locust_wrapper.errors.values()))
         locust_wrapper.bolt_api_client.insert_endpoint_totals(EXECUTION_ID, locust_wrapper.environment.stats)
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
         global STAT_WATCHER_INSTANCE
