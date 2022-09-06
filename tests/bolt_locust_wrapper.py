@@ -357,6 +357,9 @@ def test_start_handler(*args, **kwargs):
     if WORKER_TYPE == 'master':
         global STAT_WATCHER_INSTANCE
         STAT_WATCHER_INSTANCE = StatWatcher(STAT_GATHER_INTERVAL, check_stats)
+        execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat(), 'status': 'RUNNING'}
+        wrap_logger.info(f'Setting execution details to: {execution_update_data}')
+        locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
 
 
 @wrap_events.init.add_listener
@@ -370,9 +373,6 @@ def init_handler(environment, **kwargs):
         wrap_logger.info(f'Started locust tests with execution {EXECUTION_ID}')
         locust_wrapper.bolt_api_client.insert_execution_instance({'status': 'READY', 'instance_type': 'load_tests'})
         locust_wrapper.start_execution = wrap_datetime.datetime.now()
-        execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat(), 'status': 'RUNNING'}
-        wrap_logger.info(f'Setting execution details to: {execution_update_data}')
-        locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
         if not locust_wrapper.dataset:
             locust_wrapper.dataset.append({locust_wrapper.start_execution.timestamp(): []})
             locust_wrapper.dataset_timestamps.append(int(locust_wrapper.start_execution.timestamp()))
