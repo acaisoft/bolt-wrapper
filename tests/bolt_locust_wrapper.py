@@ -237,6 +237,7 @@ class LocustWrapper(object):
                 # send as locust event
                 save_to_database(stats)
 
+
     def push_event(self, data, event_type):
         # extracting errors for common cases (when WORKER_TYPE is not 'master' or 'slave')
         if event_type == 'failure':
@@ -287,6 +288,7 @@ class LocustWrapper(object):
 locust_wrapper = LocustWrapper()
 
 
+# is used
 def check_stats():
     env = locust_wrapper.environment
     if len(env.stats.history) > 0 or env.runner.user_count != 0:
@@ -302,6 +304,12 @@ def check_stats():
             'execution_id': EXECUTION_ID,
         }
         locust_wrapper.bolt_api_client.insert_aggregated_results(data)
+    if locust_errors := locust_wrapper.errors:
+        errors = list(locust_errors.values())
+        for error in errors:
+            error.pop('execution_id', None)
+        locust_wrapper.bolt_api_client.insert_error_results(errors)
+        locust_wrapper.errors = {}
 
 
 @wrap_events.request.add_listener
@@ -309,14 +317,16 @@ def request_handler(request_type, name, response_time, response_length, response
     """
     Handler for catching unsuccessful requests
     """
-    event_type = 'failure' if exception is not None else 'success'
-    received_data = {
-        'execution_id': locust_wrapper.execution, 'endpoint': name, 'exception': str(exception),
-        'request_type': request_type, 'response_length': response_length, 'response_time': float(response_time),
-        'event_type': event_type, 'timestamp': int(wrap_time.time()),
-    }
-    locust_wrapper.push_event(received_data, event_type=event_type)
+    if WORKER_TYPE == 'master':
+        event_type = 'failure' if exception is not None else 'success'
+        received_data = {
+            'execution_id': locust_wrapper.execution, 'endpoint': name, 'exception': str(exception),
+            'request_type': request_type, 'response_length': response_length, 'response_time': float(response_time),
+            'event_type': event_type, 'timestamp': int(wrap_time.time()),
+        }
+        locust_wrapper.push_event(received_data, event_type=event_type)
 
+#is used
 
 @wrap_events.quit.add_listener
 def quitting_handler(exit_code):
@@ -339,7 +349,7 @@ def quitting_handler(exit_code):
                          f'Locust end: {locust_wrapper.end_execution}')
         wrap_logger.info(f'Dataset timestamps {locust_wrapper.dataset_timestamps}')
         # prepare and send error results to database
-        locust_wrapper.bolt_api_client.insert_error_results(list(locust_wrapper.errors.values()))
+        # locust_wrapper.bolt_api_client.insert_error_results(list(locust_wrapper.errors.values()))
         locust_wrapper.bolt_api_client.insert_endpoint_totals(EXECUTION_ID, locust_wrapper.environment.stats)
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data={'status': 'FINISHED'})
         global STAT_WATCHER_INSTANCE
