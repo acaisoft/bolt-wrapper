@@ -289,7 +289,7 @@ locust_wrapper = LocustWrapper()
 
 
 # is used
-def check_stats():
+def stat_worker_job():
     env = locust_wrapper.environment
     if len(env.stats.history) > 0 or env.runner.user_count != 0:
         stats = env.stats.total
@@ -304,6 +304,9 @@ def check_stats():
             'execution_id': EXECUTION_ID,
         }
         locust_wrapper.bolt_api_client.insert_aggregated_results(data)
+    if locust_errors := locust_wrapper.errors:
+        locust_wrapper.bolt_api_client.insert_error_results(list(locust_errors.values()))
+        locust_wrapper.errors = {}
 
 
 @wrap_events.request.add_listener
@@ -360,7 +363,7 @@ def test_start_handler(*args, **kwargs):
     """
     if WORKER_TYPE == 'master':
         global STAT_WATCHER_INSTANCE
-        STAT_WATCHER_INSTANCE = StatWatcher(STAT_GATHER_INTERVAL, check_stats)
+        STAT_WATCHER_INSTANCE = StatWatcher(STAT_GATHER_INTERVAL, stat_worker_job)
         execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat(), 'status': 'RUNNING'}
         wrap_logger.info(f'Setting execution details to: {execution_update_data}')
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
