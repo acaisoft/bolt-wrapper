@@ -117,32 +117,6 @@ class BoltAPIClient(object):
         ts = datetime.now().isoformat()
         request_tick_stats = stats.pop("requests", {})
         stats['requests'] = []
-        stats['distributions'] = []
-
-        # open report with distributions and save to variable
-        if os.path.exists('test_report_stats.csv'):
-            with open('test_report_stats.csv') as f:
-                for r in csv.DictReader(f):
-                    if not r["Name"] == "Total" and r["Type"] != "":
-                        req_id = identifier([r['Type'], r['Name']])
-                        stats['distributions'].append({
-                            'timestamp': ts,
-                            'identifier': req_id,
-                            'method': r['Type'],
-                            'name': r['Name'],
-                            'num_requests': r['Request Count'],
-                            'p50': r['50%'],
-                            'p66': r['66%'],
-                            'p75': r['75%'],
-                            'p80': r['80%'],
-                            'p90': r['90%'],
-                            'p95': r['95%'],
-                            'p98': r['98%'],
-                            'p99': r['99%'],
-                            'p100': r['100%'],
-                        })
-        else:
-            logger.warn('no stats file')
 
         median_response_time = stats.pop("median_response_time_per_endpoint", {})
         avg_requests_per_second = stats.pop("avg_req_per_sec_per_endpoint", {})
@@ -261,24 +235,25 @@ class BoltAPIClient(object):
         return result
 
     @log_time_execution(logger)
-    def insert_distribution_results(self, test_report):
+    def insert_distribution_results(self, execution_id, stats):
+        percentiles = [50, 66, 75, 80, 90, 95, 98, 99, 100]
+        distributions = [{
+            'timestamp': datetime.now().isoformat(),
+            'identifier': identifier([e.method, e.name]),
+            'method': e.method,
+            'name': e.name,
+            'num_requests': e.num_requests,
+            **{f'p{percent}': e.get_response_time_percentile(percent / 100) for percent in percentiles}
+        } for e in stats.entries.values()]
+
         query = gql('''
-            mutation (
-                $execution_id: uuid, 
-                $request_result: json, 
-                $distribution_result: json, 
-                $start: timestamptz, 
-                $end: timestamptz
-            ) {
-                insert_result_distribution (objects: [{
-                    request_result: $request_result, 
-                    distribution_result: $distribution_result, 
-                    start: $start, 
-                    end: $end
-                }]){ affected_rows }
-            } 
-        ''')
-        result = self.gql_client.transport.execute(query, variable_values=test_report)
+                    mutation (
+                        $distributions:[execution_distribution_insert_input!]!,
+                    ){ 
+                        insert_execution_distribution(objects: $distributions) { affected_rows }
+                    }
+                ''')
+        result = self.gql_client.transport.execute(query, variable_values={'distributions': distributions})
         return result
 
     @log_time_execution(logger)
@@ -406,5 +381,4 @@ class BoltAPIClient(object):
                 ''')
         stats.pop('execution_id')
         result = self.gql_client.transport.execute(query, variable_values=stats)
-        logger.error(f'Insert Aggregation Result Error: {result.errors}')
         return result
