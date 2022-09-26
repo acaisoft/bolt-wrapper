@@ -157,7 +157,6 @@ class BoltAPIClient(object):
         query = gql('''
             mutation (
                 $requests:[execution_requests_insert_input!]!, 
-                $distributions:[execution_distribution_insert_input!]!,
                 $errors:[execution_errors_insert_input!]!,
                 $timestamp: timestamptz, 
                 $number_of_successes: Int, 
@@ -168,7 +167,6 @@ class BoltAPIClient(object):
                 $average_response_size: numeric
             ){ 
                 insert_execution_requests(objects: $requests) { affected_rows }
-                insert_execution_distribution(objects: $distributions) { affected_rows }
                 insert_execution_errors(objects: $errors) { affected_rows }
             }
         ''')
@@ -235,7 +233,7 @@ class BoltAPIClient(object):
         return result
 
     @log_time_execution(logger)
-    def insert_distribution_results(self, execution_id, stats):
+    def insert_time_distribution_results(self, execution_id, stats):
         percentiles = [50, 66, 75, 80, 90, 95, 98, 99, 100]
         distributions = [{
             'timestamp': datetime.now().isoformat(),
