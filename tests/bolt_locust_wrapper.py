@@ -289,7 +289,7 @@ locust_wrapper = LocustWrapper()
 
 
 # is used
-def check_stats():
+def stat_worker_job():
     env = locust_wrapper.environment
     if len(env.stats.history) > 0 or env.runner.user_count != 0:
         stats = env.stats.total
@@ -343,7 +343,6 @@ def quitting_handler(exit_code):
         locust_wrapper.save_stats(send_all=True)
         # TODO find proper way to present this stats
         # sum_success = sum([s['number_of_successes'] for s in locust_wrapper.stats])
-        # wrap_logger.info(f'Number of success: {sum_success}. Number of errors {len(locust_wrapper.errors)}')
         wrap_logger.info(f'Count stats {len(locust_wrapper.stats)}')
         wrap_logger.info(f'Locust start: {locust_wrapper.start_execution}. '
                          f'Locust end: {locust_wrapper.end_execution}')
@@ -366,7 +365,7 @@ def test_start_handler(*args, **kwargs):
     """
     if WORKER_TYPE == 'master':
         global STAT_WATCHER_INSTANCE
-        STAT_WATCHER_INSTANCE = StatWatcher(STAT_GATHER_INTERVAL, check_stats)
+        STAT_WATCHER_INSTANCE = StatWatcher(STAT_GATHER_INTERVAL, stat_worker_job)
         execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat(), 'status': 'RUNNING'}
         wrap_logger.info(f'Setting execution details to: {execution_update_data}')
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
