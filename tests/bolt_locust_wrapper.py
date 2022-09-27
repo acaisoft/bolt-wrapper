@@ -49,7 +49,7 @@ HASURA_TOKEN = wrap_os.getenv('BOLT_HASURA_TOKEN')
 EXECUTION_ID = wrap_os.getenv('BOLT_EXECUTION_ID')
 WORKER_TYPE = wrap_os.getenv('BOLT_WORKER_TYPE')
 LOCUSTFILE_NAME = wrap_os.getenv('BOLT_LOCUSTFILE_NAME')
-STAT_GATHER_INTERVAL = int(wrap_os.getenv('BOLT_STAT_GATHER_INTERVAL', 2))
+TEST_DURATION = int(wrap_os.getenv('BOLT_TEST_DURATION', 1))
 
 wrap_locust_stats.CSV_STATS_INTERVAL_SEC = SENDING_INTERVAL_IN_SECONDS
 wrap_logger = wrap_setup_custom_logger(__name__)
@@ -366,7 +366,10 @@ def test_start_handler(*args, **kwargs):
     """
     if WORKER_TYPE == 'master':
         global STAT_WATCHER_INSTANCE
-        STAT_WATCHER_INSTANCE = StatWatcher(STAT_GATHER_INTERVAL, stat_worker_job)
+        STAT_WATCHER_INSTANCE = StatWatcher(
+            1 if (TEST_DURATION / 500) < 1 else round(TEST_DURATION / 500),
+            stat_worker_job
+        )
         execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat(), 'status': 'RUNNING'}
         wrap_logger.info(f'Setting execution details to: {execution_update_data}')
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
