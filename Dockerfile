@@ -2,7 +2,6 @@ FROM python:3.10.4-slim-buster as base
 
 RUN apt update -y
 
-RUN ln -fs /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
 RUN export DEBIAN_FRONTEND=noninteractive
 RUN apt-get install -y tzdata
 RUN apt-get install -y libzmq3-dev
