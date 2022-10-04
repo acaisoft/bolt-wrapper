@@ -23,8 +23,8 @@ import os
 from datetime import datetime
 from gql import gql, Client
 
-from bolt_transport import WrappedTransport
-from bolt_logger import setup_custom_logger, log_time_execution
+from bolt_utils.bolt_transport import WrappedTransport
+from bolt_utils.bolt_logger import setup_custom_logger, log_time_execution
 
 # TODO: temporary solution for disabling warnings
 import urllib3

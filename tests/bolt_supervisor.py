@@ -23,8 +23,8 @@ import time
 import threading
 
 from bolt_api_client import BoltAPIClient
-from bolt_enums import Status
-from bolt_logger import setup_custom_logger
+from bolt_utils.bolt_enums import Status
+from bolt_utils.bolt_logger import setup_custom_logger
 
 
 EXECUTION_ID = os.getenv('BOLT_EXECUTION_ID')

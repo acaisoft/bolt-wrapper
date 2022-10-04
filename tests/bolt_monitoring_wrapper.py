@@ -28,10 +28,10 @@ import time
 from dateutil import parser
 
 from bolt_api_client import BoltAPIClient
-from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
-from bolt_enums import Status
-from bolt_logger import setup_custom_logger
-from bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
+from bolt_utils.bolt_exceptions import MonitoringError, MonitoringWaitingExpired
+from bolt_utils.bolt_enums import Status
+from bolt_utils.bolt_logger import setup_custom_logger
+from bolt_utils.bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
 
 # TODO: need to refactor function run_monitor for working without recursion
 sys.setrecursionlimit(7000)

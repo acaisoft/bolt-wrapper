@@ -26,12 +26,12 @@ import time
 import requests.exceptions
 from locust.main import main as locust_main
 
-from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
-from bolt_logger import setup_custom_logger
+from bolt_utils.bolt_exceptions import MonitoringError, MonitoringWaitingExpired
+from bolt_utils.bolt_logger import setup_custom_logger
 from bolt_api_client import BoltAPIClient
 from bolt_supervisor import Supervisor
-from bolt_enums import Status
-from bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
+from bolt_utils.bolt_enums import Status
+from bolt_utils.bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
 
 # TODO: temporary solution for disabling warnings
 import urllib3
@@ -266,13 +266,15 @@ class Runner(object):
             logger.info('Master/slave not found.')
             return False, False  # unknown
 
-    def prepare_master_arguments(self, expect_slaves):
+    @staticmethod
+    def prepare_master_arguments(expect_slaves):
         logger.info(f'Start preparing arguments for master.')
         bolt_api_client.insert_execution_instance({
             'status': 'READY', 'instance_type': WORKER_TYPE, 'expect-workers': expect_slaves})
         return ['--master', f'--expect-workers={expect_slaves}']  # additional arguments for master
 
-    def prepare_slave_arguments(self):
+    @staticmethod
+    def prepare_slave_arguments():
         logger.info(f'Start preparing arguments for slave.')
         return ['--worker', f'--master-host={MASTER_HOST}']  # additional arguments for slave
 

@@ -32,10 +32,10 @@ import locust.stats as wrap_locust_stats
 from locust import events as wrap_events
 from locust.runners import MasterRunner
 
-from bolt_logger import setup_custom_logger as wrap_setup_custom_logger
+from bolt_utils.bolt_logger import setup_custom_logger as wrap_setup_custom_logger
 from bolt_api_client import BoltAPIClient as WrapBoltAPIClient
 import bolt_locust_wrapper_parser as parser
-from bolt_stat_watcher import StatWatcher
+from bolt_utils.bolt_stat_watcher import StatWatcher
 
 # TODO: temporary solution for disabling warnings
 import urllib3
