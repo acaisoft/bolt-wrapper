@@ -16,15 +16,21 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+from gevent import monkey
+monkey.patch_all(ssl=False, thread=False, pool=False)
+
+
+def stub(*args, **kwargs):
+    pass
+
+
+monkey.patch_all = stub
 
 import json
 import sys
 import os
 import importlib
 import time
-
-from gevent import monkey
-monkey.patch_all(ssl=False)
 
 import requests.exceptions
 from locust.main import main as locust_main
