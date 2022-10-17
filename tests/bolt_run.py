@@ -23,6 +23,9 @@ import os
 import importlib
 import time
 
+from gevent import monkey
+monkey.patch_all(ssl=False)
+
 import requests.exceptions
 from locust.main import main as locust_main
 

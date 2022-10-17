@@ -2,6 +2,7 @@ certifi==2021.10.8
 chardet==4.0.0
 click==8.1.2
 flask==2.1.1
+gevent==21.12.0
 gql==3.4.0
 graphql-core==3.2.1
 greenlet==1.1.2
