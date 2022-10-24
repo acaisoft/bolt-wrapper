@@ -17,3 +17,24 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from statistics import median
+from bolt_utils.bolt_logger import setup_custom_logger as wrap_setup_custom_logger
+
+wrap_logger = wrap_setup_custom_logger(__name__)
+wrap_logger.propagate = False
+
+
+def get_response_times_median_for_every_endpoint(response_times_per_endpoint):
+    """
+    In every endpoint stats there are: 'response_times': { 420: 2, 430: 3,}
+    To get median for single endpoint we need list like: [420, 420, 430, 430, 430]
+    """
+    for endpoint, value in response_times_per_endpoint.items():
+        responses = []
+        for time_value, counter in value.items():
+            responses.extend([time_value for i in range(counter)])
+        response_times_per_endpoint[endpoint] = median(responses)
+
+    return response_times_per_endpoint
+
+

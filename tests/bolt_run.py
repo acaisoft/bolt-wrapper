@@ -1,17 +1,46 @@
+# Copyright (c) 2022 Acaisoft
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+# the Software, and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+# IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+from gevent import monkey
+monkey.patch_all(ssl=False, thread=False, pool=False, socket=False)
+
+
+def stub(*args, **kwargs):
+    pass
+
+
+monkey.patch_all = stub
+
 import json
 import sys
 import os
 import importlib
 import time
 
+import requests.exceptions
 from locust.main import main as locust_main
 
-from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
-from bolt_logger import setup_custom_logger
+from bolt_utils.bolt_exceptions import MonitoringError, MonitoringWaitingExpired
+from bolt_utils.bolt_logger import setup_custom_logger
 from bolt_api_client import BoltAPIClient
 from bolt_supervisor import Supervisor
-from bolt_enums import Status
-from bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
+from bolt_utils.bolt_enums import Status
+from bolt_utils.bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
 
 # TODO: temporary solution for disabling warnings
 import urllib3
@@ -39,15 +68,24 @@ logger.info(f'nfs mount path: {NFS_MOUNT}')
 logger.info(os.environ)
 
 SCENARIO_TYPE: str
+MAX_GQL_RETRY = 3
+GQL_RETRY_TIMEOUT = 3
 
 no_keep_alive = True if WORKER_TYPE == 'slave' else False
 bolt_api_client = BoltAPIClient(no_keep_alive=no_keep_alive)
+
+IGNORED_ARGS = [
+    'load_tests_repository_branch',
+    'load_tests_file_name',
+    'load_tests_users_per_worker'
+]
 
 
 def _exit_with_status(status, reason=None):
     logger.info(f'Exit with status {status}. For execution_id {EXECUTION_ID}')
     if reason is not None:
         logger.info(f'Reason: {reason}')
+    bolt_api_client.terminate()
     sys.exit(status)
 
 
@@ -69,7 +107,7 @@ def _import_and_run(module_name, func_name='main', **kwargs):
             logger.exception(f'Caught exception during execution monitoring | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         except MonitoringWaitingExpired as ex:
-            logger.exception(f'Caught monitoring exception during waiting load tests | {ex}')
+            logger.exception(f'Monitoring timed out while waiting for load tests | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         except Exception as ex:
             logger.exception(f'Caught unknown exception during execution | {ex}')
@@ -86,7 +124,7 @@ class Runner(object):
         try:
             configuration = data['execution'][0]['configuration']
         except LookupError as ex:
-            logger.exception(f'Error during extracting environments from configuration | {ex}')
+            logger.exception(f'Error while extracting environment from configuration | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             for envs in configuration.get('configuration_envvars', []):
@@ -98,19 +136,28 @@ class Runner(object):
         try:
             configuration = data['execution'][0]['configuration']
         except LookupError as ex:
-            logger.exception(f'Error during setting environments for load tests | {ex}')
+            logger.exception(f'Error while setting environment for load tests | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             if configuration['test_source']['source_type'] not in ('repository', 'test_creator'):
                 logger.info('Invalid source_type value')
                 _exit_with_status(EXIT_STATUS_ERROR)
             if configuration['test_source']['source_type'] == 'repository':
-                os.environ['BOLT_LOCUSTFILE_NAME'] = 'load_tests'
+                try:
+                    parameters = data['execution'][0]['configuration']['configuration_parameters']
+                    if not parameters:
+                        raise LookupError('No arguments for configurations')
+                    for p in parameters:
+                        if p['parameter_slug'] == 'load_tests_file_name':
+                            os.environ['BOLT_LOCUSTFILE_NAME'] = p['value'].split('.')[0]
+                except Exception as ex:
+                    logger.exception(f'Error during extracting locustfile name from execution parameters {ex}')
+                    _exit_with_status(EXIT_STATUS_ERROR)
             elif configuration['test_source']['source_type'] == 'test_creator':
                 try:
                     test_creator = configuration['test_source']['test_creator']
                 except LookupError as ex:
-                    logger.exception(f'Error during getting data for Test Creator | {ex}')
+                    logger.exception(f'Error while getting data for Test Creator | {ex}')
                     _exit_with_status(EXIT_STATUS_ERROR)
                     return
                 os.environ['BOLT_LOCUSTFILE_NAME'] = 'locustfile_generic'
@@ -123,10 +170,10 @@ class Runner(object):
                     elif isinstance(test_creator_data, str):
                         os.environ['BOLT_TEST_CREATOR_DATA'] = test_creator_data
                     else:
-                        logger.info(f'Found unknown type for test_creator_data: {type(test_creator_data)}')
+                        logger.info(f'Unknown type of test_creator_data: {type(test_creator_data)}')
                         _exit_with_status(EXIT_STATUS_ERROR)
                 else:
-                    logger.info(f'Cannot get data for test creator. Test creator data is {test_creator_data}')
+                    logger.info(f'Cannot get data for Test Creator. Test Creator data is {test_creator_data}')
                     _exit_with_status(EXIT_STATUS_ERROR)
             else:
                 logger.info(f'Cannot find locustile name for execution {EXECUTION_ID}')
@@ -137,7 +184,7 @@ class Runner(object):
         try:
             configuration = data['execution'][0]['configuration']
         except LookupError as ex:
-            logger.exception(f'Error during checking that configuration has load tests | {ex}')
+            logger.exception(f'Error checking if configuration has load tests | {ex}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             return configuration['has_load_tests']
@@ -163,6 +210,12 @@ class Runner(object):
     def get_load_tests_arguments(data, extra_arguments, is_master):
         argv = sys.argv or []
         # delete `load_tests` argument from list of argv's
+        for e in data['execution'][0]['configuration']['configuration_parameters']:
+            if e['parameter']['param_name'] == '-c':
+                e['parameter']['param_name'] = '-u'
+            if e['parameter_slug'] == 'load_tests_duration':
+                os.environ['BOLT_TEST_DURATION'] = e['value']
+
         try:
             argv.remove('load_tests')
         except ValueError:
@@ -181,9 +234,9 @@ class Runner(object):
             if is_master:
                 for p in parameters:
                     parameter_slug = p['parameter_slug']
-                    if parameter_slug.startswith('load_tests_'):
+                    if parameter_slug.startswith('load_tests_') and parameter_slug not in IGNORED_ARGS:
                         argv.extend([p['parameter']['param_name'], p['value']])
-                argv.extend(['--no-web'])
+                argv.extend(['--headless'])
                 argv.extend(['--csv=test_report'])
             if extra_arguments is not None:
                 argv.extend(extra_arguments)
@@ -197,7 +250,7 @@ class Runner(object):
         try:
             scenario = sys.argv[1]
         except IndexError:
-            logger.exception(f'Scenario type does not found. Args {sys.argv}')
+            logger.exception(f'Scenario type not found. Args {sys.argv}')
             _exit_with_status(EXIT_STATUS_ERROR)
         else:
             logger.info(f'Trying to detect scenario from arguments {sys.argv}')
@@ -219,20 +272,20 @@ class Runner(object):
             logger.info(f'Slave detected.')
             return False, True  # is slave
         else:
-            logger.info('Master/slave does not found.')
+            logger.info('Master/slave not found.')
             return False, False  # unknown
 
-    def prepare_master_arguments(self, expect_slaves):
+    @staticmethod
+    def prepare_master_arguments(expect_slaves):
         logger.info(f'Start preparing arguments for master.')
         bolt_api_client.insert_execution_instance({
-            'status': 'READY', 'instance_type': WORKER_TYPE, 'expect_slaves': expect_slaves})
-        return ['--master', f'--expect-slaves={expect_slaves}']  # additional arguments for master
+            'status': 'READY', 'instance_type': WORKER_TYPE, 'expect-workers': expect_slaves})
+        return ['--master', f'--expect-workers={expect_slaves}']  # additional arguments for master
 
-    def prepare_slave_arguments(self):
+    @staticmethod
+    def prepare_slave_arguments():
         logger.info(f'Start preparing arguments for slave.')
-        bolt_api_client.insert_execution_instance({
-            'host': MASTER_HOST, 'port': 5557, 'status': 'READY', 'instance_type': WORKER_TYPE})
-        return ['--slave', f'--master-host={MASTER_HOST}']  # additional arguments for slave
+        return ['--worker', f'--master-host={MASTER_HOST}']  # additional arguments for slave
 
     @staticmethod
     def flow_was_terminated_or_failed(execution_data):
@@ -247,11 +300,23 @@ class Runner(object):
 def main():
     runner = Runner()
     supervisor = Supervisor()
+    logger.info('ARGS')
+    logger.info(sys.argv)
     scenario_type = runner.scenario_detector()
-    execution_data = bolt_api_client.get_execution(execution_id=EXECUTION_ID)
+    execution_data = None
+    retry_count = 0
+    while execution_data is None and retry_count < MAX_GQL_RETRY:
+        try:
+            execution_data = bolt_api_client.get_execution(execution_id=EXECUTION_ID)
+        except requests.HTTPError as ex:
+            retry_count += 1
+            time.sleep(GQL_RETRY_TIMEOUT)
+    if not execution_data:
+        logger.error(f'Not able to gather execution data due to HTTP Error {ex}')
+        sys.exit(1)
     # if flow terminated we should exit from container as success (without retries)
     if runner.flow_was_terminated_or_failed(execution_data):
-        _exit_with_status(status=EXIT_STATUS_SUCCESS, reason='Flow was terminated or failed')
+        _exit_with_status(status=EXIT_STATUS_SUCCESS, reason='Flow failed or has been terminated')
     runner.set_configuration_environments(execution_data)
     if scenario_type == 'pre_start':
         _import_and_run('bolt_flow.pre_start')
@@ -266,17 +331,19 @@ def main():
             has_load_tests=has_load_tests, monitoring_arguments=monitoring_arguments
         )
     elif scenario_type == 'load_tests':
-        supervisor.run()
         runner.set_environments_for_load_tests(execution_data)
         # master/slave
         additional_arguments = None
         is_master, is_slave = runner.master_slave_detector()
         if is_master:
+            supervisor.run()
             number_of_slaves = execution_data['execution'][0]['configuration']['instances']
             additional_arguments = runner.prepare_master_arguments(number_of_slaves)
         elif is_slave:
             additional_arguments = runner.prepare_slave_arguments()
         # set arguments to locust
+        logger.info(f'Configuration parameters for execution {EXECUTION_ID}:\n'
+                    f'{execution_data["execution"][0]["configuration"]["configuration_parameters"]}')
         logger.info(f'Arguments (sys.argv) before {sys.argv}')
         sys.argv = runner.get_load_tests_arguments(execution_data, additional_arguments, is_master)
         logger.info(f'Arguments (sys.argv) after {sys.argv}')

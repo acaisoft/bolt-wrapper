@@ -1,3 +1,22 @@
+# Copyright (c) 2022 Acaisoft
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+# the Software, and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+# IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 import os
 import signal
 import sys
@@ -9,10 +28,10 @@ import time
 from dateutil import parser
 
 from bolt_api_client import BoltAPIClient
-from bolt_exceptions import MonitoringError, MonitoringWaitingExpired
-from bolt_enums import Status
-from bolt_logger import setup_custom_logger
-from bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
+from bolt_utils.bolt_exceptions import MonitoringError, MonitoringWaitingExpired
+from bolt_utils.bolt_enums import Status
+from bolt_utils.bolt_logger import setup_custom_logger
+from bolt_utils.bolt_consts import EXIT_STATUS_SUCCESS, EXIT_STATUS_ERROR
 
 # TODO: need to refactor function run_monitor for working without recursion
 sys.setrecursionlimit(7000)
@@ -45,7 +64,9 @@ def _signals_exit_handler(signo, stack_frame):
             global FLOW_WAS_TERMINATED_OR_FAILED
             FLOW_WAS_TERMINATED_OR_FAILED = True
             logger.info('Monitoring did not finish successfully. Exit with error (code 1)')
+            bolt_api_client.terminate()
             sys.exit(EXIT_STATUS_ERROR)
+    bolt_api_client.terminate()
     logger.info('Exit from monitoring with code 0')
     sys.exit(EXIT_STATUS_SUCCESS)
 
