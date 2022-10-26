@@ -190,8 +190,8 @@ class BoltAPIClient(object):
             query ($eid:uuid!) {
                 execution_by_pk(id:$eid) {
                     execution_requests (
-                      order_by:{identifier:asc, timestamp:desc}
                       distinct_on: [identifier]
+                      order_by: [{identifier: asc}, {timestamp: desc}]
                     ) 
                     {
                       execution_id, identifier, method, name, timestamp
