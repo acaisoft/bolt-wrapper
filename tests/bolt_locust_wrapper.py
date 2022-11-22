@@ -81,6 +81,7 @@ class LocustWrapper(object):
         if WORKER_TYPE != 'slave':
             self.bolt_api_client = WrapBoltAPIClient()
         self.execution = EXECUTION_ID
+        self.cpu_warned = False
 
     def prepare_stats_by_interval_common(self, data):
         """
@@ -391,6 +392,18 @@ def init_handler(environment, **kwargs):
             locust_wrapper.dataset_timestamps.append(int(locust_wrapper.start_execution.timestamp()))
         locust_wrapper.is_started = True
         wrap_logger.info('End start handler')
+
+
+@wrap_events.cpu_warning.add_listener
+def cpu_warning_handler(environment, cpu_usage):
+    """
+    Will be called _once_ for each node that reports CPU usage above threshold for 5 seconds consecutively.
+    Effectively, we will update execution once only. This can be extended if we want to keep track of details
+    of these events.
+    """
+    if not locust_wrapper.cpu_warned:
+        locust_wrapper.bolt_api_client.warn_about_high_cpu_usage(EXECUTION_ID)
+        locust_wrapper.cpu_warned = True
 
 
 def save_to_database(data):
