@@ -238,7 +238,6 @@ class LocustWrapper(object):
                 # send as locust event
                 save_to_database(stats)
 
-
     def push_event(self, data, event_type):
         # extracting errors for common cases (when WORKER_TYPE is not 'master' or 'slave')
         if event_type == 'failure':
@@ -284,6 +283,11 @@ class LocustWrapper(object):
             self.dataset_timestamps.append(int(now_timestamp))
         # try to save/send stats for interval
         self.save_stats()
+
+    def cpu_warning(self, *args, **kwargs):
+        if not self.cpu_warned:
+            self.bolt_api_client.warn_about_high_cpu_usage(EXECUTION_ID)
+            self.cpu_warned = True
 
 
 locust_wrapper = LocustWrapper()
@@ -337,6 +341,8 @@ def quitting_handler(exit_code):
     if not locust_wrapper.is_finished and WORKER_TYPE == 'master':
         locust_wrapper.is_finished = True
         wrap_logger.info('Begin quit handler')
+        if locust_wrapper.environment.runner.cpu_warning_emitted:
+            locust_wrapper.cpu_warning()
         locust_wrapper.end_execution = wrap_datetime.datetime.now()
         execution_update_data = {'end_locust': locust_wrapper.end_execution.isoformat()}
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
@@ -361,7 +367,7 @@ def quitting_handler(exit_code):
 
 
 @wrap_events.test_start.add_listener
-def test_start_handler(*args, **kwargs):
+def test_start_handler(environment):
     """
     Will be called before starting test runner
     """
@@ -374,6 +380,7 @@ def test_start_handler(*args, **kwargs):
         execution_update_data = {'start_locust': locust_wrapper.start_execution.isoformat(), 'status': 'RUNNING'}
         wrap_logger.info(f'Setting execution details to: {execution_update_data}')
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
+        locust_wrapper.environment.runner.register_message("cpu_warning", locust_wrapper.cpu_warning)
 
 
 @wrap_events.init.add_listener
@@ -401,9 +408,10 @@ def cpu_warning_handler(environment, cpu_usage):
     Effectively, we will update execution once only. This can be extended if we want to keep track of details
     of these events.
     """
-    if not locust_wrapper.cpu_warned:
-        locust_wrapper.bolt_api_client.warn_about_high_cpu_usage(EXECUTION_ID)
-        locust_wrapper.cpu_warned = True
+    if WORKER_TYPE == 'master':
+        locust_wrapper.cpu_warning()
+    else:
+        locust_wrapper.environment.runner.send_message('cpu_warning')
 
 
 def save_to_database(data):

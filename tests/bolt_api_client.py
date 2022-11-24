@@ -323,8 +323,8 @@ class BoltAPIClient(object):
     @log_time_execution(logger)
     def warn_about_high_cpu_usage(self, execution_id):
         query = gql('''
-            mutation (execution_id: uuid) {
-                update_execution(where: {id: {_eq: execution_id}}, _set: {cpu_warning: true}) {
+            mutation ($execution_id: uuid) {
+                update_execution(where: {id: {_eq: $execution_id}}, _set: {cpu_warning: true}) {
                     affected_rows
                 }
             }
