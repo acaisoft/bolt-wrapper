@@ -69,7 +69,6 @@ class BoltAPIClient(object):
                         has_pre_test
                         has_post_test
                         has_load_tests
-                        has_monitoring
                         configuration_parameters {
                             value
                             parameter_slug
