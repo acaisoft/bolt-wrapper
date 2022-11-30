@@ -27,6 +27,7 @@
 #
 #
 # monkey.patch_all = stub
+from locust.main import main as locust_main
 
 import json
 import sys
@@ -35,7 +36,6 @@ import importlib
 import time
 
 import requests.exceptions
-from locust.main import main as locust_main
 
 from bolt_utils.bolt_exceptions import MonitoringError, MonitoringWaitingExpired
 from bolt_utils.bolt_logger import setup_custom_logger
