@@ -340,6 +340,8 @@ def main():
             number_of_slaves = execution_data['execution'][0]['configuration']['instances']
             additional_arguments = runner.prepare_master_arguments(number_of_slaves)
         elif is_slave:
+            from gevent import monkey
+            monkey.patch_all()
             additional_arguments = runner.prepare_slave_arguments()
         # set arguments to locust
         logger.info(f'Configuration parameters for execution {EXECUTION_ID}:\n'
