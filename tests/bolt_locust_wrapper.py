@@ -381,6 +381,9 @@ def test_start_handler(environment):
         wrap_logger.info(f'Setting execution details to: {execution_update_data}')
         locust_wrapper.bolt_api_client.update_execution(execution_id=EXECUTION_ID, data=execution_update_data)
         locust_wrapper.environment.runner.register_message("cpu_warning", locust_wrapper.cpu_warning)
+    else:
+        from gevent import monkey
+        monkey.patch_all()
 
 
 @wrap_events.init.add_listener
