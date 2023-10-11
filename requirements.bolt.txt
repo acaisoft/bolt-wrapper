@@ -3,6 +3,7 @@ chardet==4.0.0
 click==8.1.2
 flask==2.1.1
 gevent==22.10.2
+google-cloud-run==0.9.1
 gql==3.4.0
 graphql-core==3.2.1
 greenlet==2.0.1

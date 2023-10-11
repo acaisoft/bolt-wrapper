@@ -26,8 +26,9 @@ WORKDIR /home/bolt/tests
 COPY . /home/bolt/
 RUN chown -R bolt:bolt /home/bolt
 # install user-supplied requirements, these will be inserted by packer
-RUN pip install -r /home/bolt/requirements.txt
+#RUN pip install -r /home/bolt/requirements.txt  # disabled for standalone testing
 USER bolt
 ENV PATH="/home/bolt/.local/bin:${PATH}"
+ENV GOOGLE_APPLICATION_CREDENTIALS="/home/bolt/tests/bolt_utils/auth/acai-bolt-internal-859b37dcd099.json"
 
-CMD ["python", "-m", "bolt_run"]
+CMD ["python", "-m", "bolt_cloud_run"]
